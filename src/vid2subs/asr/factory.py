@@ -13,6 +13,7 @@ BackendType = Literal["auto", "nemo", "sensevoice"]
 def get_asr_engine(
     lang: str,
     backend: BackendType = "auto",
+    device: str | None = None,
 ) -> ASREngine:
     """
     根据语言和后端选择合适的 ASR 引擎。
@@ -23,12 +24,11 @@ def get_asr_engine(
     lang_upper = lang.upper()
 
     if backend == "nemo":
-        return NemoASREngine(lang="EN" if lang_upper == "EN" else "EU")
+        return NemoASREngine(lang="EN" if lang_upper == "EN" else "EU", device=device)
     if backend == "sensevoice":
-        return SenseVoiceASREngine()
+        return SenseVoiceASREngine(device=device)
 
     if lang_upper in {"EN", "EU"}:
-        return NemoASREngine(lang=lang_upper)
+        return NemoASREngine(lang=lang_upper, device=device)
 
-    return SenseVoiceASREngine()
-
+    return SenseVoiceASREngine(device=device)

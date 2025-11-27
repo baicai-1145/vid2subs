@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 import requests
@@ -42,6 +43,14 @@ class GoogleTranslator(TranslationEngine):
         else:
             self.base_url = "https://translate.googleapis.com"
         self.timeout = timeout
+
+        # 单次请求的最大文本长度（字符），用于将多条字幕合并成一批发送
+        self.text_limit = int(os.getenv("VID2SUBS_GOOGLE_TEXT_LIMIT", "1000") or "1000")
+
+        # 并发配置：控制同时发起的最大请求数（默认 1）
+        self.max_workers = max(
+            1, int(os.getenv("VID2SUBS_GOOGLE_CONCURRENCY", "1") or "1")
+        )
 
         http_proxy = os.getenv("VID2SUBS_HTTP_PROXY")
         https_proxy = os.getenv("VID2SUBS_HTTPS_PROXY")
@@ -102,9 +111,74 @@ class GoogleTranslator(TranslationEngine):
         source_lang: str,
         target_lang: str,
     ) -> List[str]:
-        translations: List[str] = []
+        translations: List[str] = ["" for _ in items]
+        if not items:
+            return translations
+
         src = source_lang or "auto"
-        for item in items:
-            translated = self._translate_text(item.text, src, target_lang)
-            translations.append(translated)
+
+        # 先按照 text_limit 将字幕 index 分组，每组的总字符数不超过限制
+        groups: list[list[int]] = []
+        current_group: list[int] = []
+        current_len = 0
+        for idx, item in enumerate(items):
+            t = item.text or ""
+            t_len = len(t)
+            # 确保每组至少有一个元素
+            if current_group and current_len + t_len > self.text_limit:
+                groups.append(current_group)
+                current_group = []
+                current_len = 0
+            current_group.append(idx)
+            current_len += t_len
+        if current_group:
+            groups.append(current_group)
+
+        # 串行模式：逐组请求
+        worker_count = min(self.max_workers, len(groups))
+
+        def process_group(group_indices: list[int]) -> tuple[list[int], list[str]]:
+            # 按顺序拼接为一个文本块，用换行符分隔
+            texts = [items[i].text or "" for i in group_indices]
+            joined = "\n".join(texts)
+            try:
+                translated_block = self._translate_text(joined, src, target_lang)
+            except Exception as exc:
+                # 整组失败时，保留原文
+                first_idx = items[group_indices[0]].index
+                print(
+                    f"Google 翻译失败（batch 起始 index={first_idx}）: {exc}. "
+                    "该组将保留原文。"
+                )
+                return group_indices, texts
+
+            # 尝试按照换行符拆分回每行字幕
+            parts = translated_block.split("\n")
+            if len(parts) != len(group_indices):
+                # 拆分数量与原字幕数量不一致时，保守起见保留原文
+                first_idx = items[group_indices[0]].index
+                print(
+                    f"Google 翻译返回行数与原始字幕数不一致（batch 起始 index={first_idx}），"
+                    "该组将保留原文。"
+                )
+                return group_indices, texts
+            return group_indices, [p.strip() for p in parts]
+
+        if worker_count <= 1:
+            for group in groups:
+                idxs, trans = process_group(group)
+                for i, text in zip(idxs, trans):
+                    translations[i] = text
+            return translations
+
+        # 并行模式：按组并行请求 Google 翻译
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_group = {
+                executor.submit(process_group, group): group for group in groups
+            }
+            for future in as_completed(future_to_group):
+                idxs, trans = future.result()
+                for i, text in zip(idxs, trans):
+                    translations[i] = text
+
         return translations

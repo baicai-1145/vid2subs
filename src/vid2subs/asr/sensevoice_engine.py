@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List
+import re
 
 from funasr import AutoModel  # type: ignore[import]
 
@@ -22,18 +23,41 @@ class SenseVoiceASREngine(ASREngine):
         model_name: str = "iic/SenseVoiceSmall",
         device: str | None = None,
     ) -> None:
+        # FunASR AutoModel 通常使用 "cuda:0" 或 "cpu" 形式的 device
+        if device is None or device == "auto":
+            actual_device: str | None = None
+        elif device == "cuda":
+            actual_device = "cuda:0"
+        else:
+            actual_device = device
+
         self.model = AutoModel(
             model=model_name,
             vad_model="fsmn-vad",
             vad_kwargs={
                 "max_single_segment_time": 30000,
             },
-            punc_model="ct-punc",
+            # 不再使用独立的 ct-punc 模型，改用 use_itn=True 让模型自带正规化+标点
+            punc_model=None,
             punc_kwargs={},
             trust_remote_code=True,
-            device=device,
+            device=actual_device,
             disable_update=True,
         )
+
+    @staticmethod
+    def _clean_tags(text: str) -> str:
+        """
+        清理掉 <|en|> 这类标签，兼容中间被加空格的情况：
+        例如 \"< | en | >\" 也能去掉。
+        实现同 sensevoice_asr_to_json.py 中的 clean_tags 保持一致。
+        """
+        if not text:
+            return ""
+        # 去掉类似 <|xxx|> 或 < | xxx | >
+        text = re.sub(r"<\s*\|\s*[^|>]*\s*\|\s*>", "", text)
+        # 再把多余空格收一下
+        return " ".join(text.split()).strip()
 
     def _run_asr_raw(self, audio_path: str) -> dict:
         res = self.model.generate(
@@ -41,7 +65,8 @@ class SenseVoiceASREngine(ASREngine):
             merge_vad=True,
             output_timestamp=True,
             batch_size_s=60,
-            do_punc=True,
+            # 使用 use_itn=True 让模型输出自带标点和正规化文本
+            use_itn=True,
             language="auto",
         )
         if isinstance(res, list) and res:
@@ -49,13 +74,15 @@ class SenseVoiceASREngine(ASREngine):
         return res
 
     def _normalize_result(self, asr_result: dict, audio_path: str) -> dict:
-        text = (asr_result.get("text") or "").strip()
+        raw_text = asr_result.get("text") or ""
+        text = self._clean_tags(raw_text)
         segments: list[dict] = []
 
         raw_chunks = asr_result.get("chunks") or []
         if raw_chunks:
             for ch in raw_chunks:
-                seg_text = (ch.get("text") or "").strip()
+                seg_raw = ch.get("text") or ""
+                seg_text = self._clean_tags(seg_raw)
                 ts = ch.get("timestamp", [None, None])
                 start, end = None, None
                 if isinstance(ts, (list, tuple)) and len(ts) >= 2:
@@ -78,7 +105,7 @@ class SenseVoiceASREngine(ASREngine):
                 end = float(ed_ms) / 1000.0
                 segments.append(
                     {
-                        "text": w,
+                        "text": self._clean_tags(w or ""),
                         "start": start,
                         "end": end,
                     }

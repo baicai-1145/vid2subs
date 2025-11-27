@@ -91,6 +91,7 @@ class NemoASREngine(ASREngine):
         lang: str = "EU",
         precision: str = "fp32",
         cpu_only: bool = False,
+        device: str | None = None,
         use_vad: bool = True,
         min_seg: float = 10.0,
         max_seg: float = 60.0,
@@ -99,6 +100,8 @@ class NemoASREngine(ASREngine):
         self.lang = lang.upper()
         if self.lang not in MODEL_MAX_SEC:
             raise ValueError(f"不支持的 NEMO 语言预设: {lang}")
+
+        self.device = device
 
         if cpu_only and precision != "fp32":
             precision = "fp32"
@@ -115,7 +118,10 @@ class NemoASREngine(ASREngine):
     def _ensure_model(self) -> None:
         if self._model is not None:
             return
-        device_override: str | None = "cpu" if self.cpu_only else None
+        # 优先使用显式指定的 device，否则根据 cpu_only 选择
+        device_override: str | None = self.device
+        if device_override is None and self.cpu_only:
+            device_override = "cpu"
         t_start = time.perf_counter()
         if self.precision == "fp32":
             asr_model = load_default_parakeet_tdt_model(lang=self.lang, device=device_override)
@@ -145,7 +151,8 @@ class NemoASREngine(ASREngine):
         effective_max_seg = min(self.max_seg, max_model_sec)
 
         if self.use_vad:
-            vad_model = load_default_frame_vad_model(device="cpu" if self.cpu_only else None)
+            # VAD 目前仍默认在 CPU 上运行，避免与 ASR 设备冲突
+            vad_model = load_default_frame_vad_model(device="cpu")
             vad_sr = vad_model.preprocessor.sample_rate
             if vad_sr != target_sr:
                 raise RuntimeError(
@@ -193,4 +200,3 @@ class NemoASREngine(ASREngine):
                     continue
                 words.append(Word(text=text, start=start_s, end=end_s))
         return words
-

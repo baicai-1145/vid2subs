@@ -25,6 +25,7 @@ dependencies = [
     "sentencepiece",
     "modelscope",
     "python-dotenv>=1.0",
+    "fast-langdetect",
 ]
 
 [project.scripts]

@@ -38,18 +38,27 @@ def sentences_to_subtitle_items(sentences: Iterable[Sentence]) -> List[SubtitleI
     return items
 
 
-def subtitle_items_to_srt(items: Iterable[SubtitleItem], bilingual: bool = False) -> str:
+def subtitle_items_to_srt(
+    items: Iterable[SubtitleItem],
+    bilingual: bool = False,
+    translated_only: bool = False,
+) -> str:
     lines: list[str] = []
     for item in items:
         start_ts = _format_timestamp(item.start)
         end_ts = _format_timestamp(item.end)
+        text = item.text
+        translation = item.translation if item.translation else None
         lines.append(str(item.index))
         lines.append(f"{start_ts} --> {end_ts}")
-        if bilingual and item.translation:
-            lines.append(item.text)
-            lines.append(item.translation)
+        if translated_only:
+            # 仅输出译文；如果译文为空，则保留原文以避免空行
+            lines.append(translation if translation is not None else text)
+        elif bilingual and translation:
+            lines.append(text)
+            lines.append(translation)
         else:
-            lines.append(item.text)
+            lines.append(text)
         lines.append("")  # 空行分隔
     return "\n".join(lines).strip() + "\n"
 
@@ -58,10 +67,14 @@ def write_srt(
     items: Iterable[SubtitleItem],
     path: str | Path,
     bilingual: bool = False,
+    translated_only: bool = False,
 ) -> Path:
-    srt_text = subtitle_items_to_srt(items, bilingual=bilingual)
+    srt_text = subtitle_items_to_srt(
+        items,
+        bilingual=bilingual,
+        translated_only=translated_only,
+    )
     out_path = Path(path).expanduser().resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(srt_text, encoding="utf-8")
     return out_path
-

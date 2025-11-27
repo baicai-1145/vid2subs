@@ -40,6 +40,8 @@ class M2M100Translator(TranslationEngine):
         self.hf_model_id = os.getenv("VID2SUBS_M2M_HF_MODEL_ID", "facebook/m2m100_418M")
         self._device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.max_length = max_length
+        # 控制单次送入模型的句子数量，避免长视频一次性吃满显存
+        self.batch_size = int(os.getenv("VID2SUBS_M2M_BATCH_SIZE", "32") or "32")
 
         self._tokenizer: M2M100Tokenizer | None = None
         self._model: M2M100ForConditionalGeneration | None = None
@@ -126,6 +128,13 @@ class M2M100Translator(TranslationEngine):
             )
 
         outputs = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+
+        # 显式释放中间张量并清理缓存，避免长时间运行时显存缓慢上涨
+        del encoded
+        del generated_tokens
+        if self._device == "cuda":
+            torch.cuda.empty_cache()
+
         return [out.strip() for out in outputs]
 
     def translate_subtitles(
@@ -141,10 +150,16 @@ class M2M100Translator(TranslationEngine):
         if not texts:
             return []
 
-        # 为简单起见，目前采用单批次翻译；如需更细粒度的分批，可在后续扩展。
         src = self._normalize_lang(source_lang, is_source=True)
         tgt = self._normalize_lang(target_lang, is_source=False)
-        translations = self._translate_batch(texts, src, tgt)
+        translations: List[str] = []
+
+        # 将整段字幕按 batch_size 分批翻译，控制单次显存占用
+        for i in range(0, len(texts), self.batch_size):
+            batch_texts = texts[i : i + self.batch_size]
+            batch_translations = self._translate_batch(batch_texts, src, tgt)
+            translations.extend(batch_translations)
+
         if len(translations) != len(items):
             # 防御性处理：长度不一致时进行截断/填充
             if len(translations) > len(items):

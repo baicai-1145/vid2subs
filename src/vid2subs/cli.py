@@ -22,7 +22,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lang",
         type=str,
-        default="EU",
+        default="EN",
         help="源语言代码：EN / EU / 其它（默认为 SenseVoiceSmall）。",
     )
     parser.add_argument(
@@ -31,6 +31,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=["auto", "nemo", "sensevoice"],
         default="auto",
         help="ASR 后端选择：auto / nemo / sensevoice。",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="统一控制计算设备：auto / cpu / cuda。默认 auto，可通过环境变量 VID2SUBS_DEVICE 配置。",
     )
     parser.add_argument(
         "--output-wav",
@@ -50,6 +57,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="如果指定，将在完成 ASR 后输出 SRT 字幕文件（默认路径: 与输入同名 .srt）。",
     )
     parser.add_argument(
+        "--output-srt-source",
+        action="store_true",
+        help="额外输出一份仅包含原文的 SRT 文件（自动在基础文件名上添加 .source 后缀）。",
+    )
+    parser.add_argument(
+        "--output-srt-translated",
+        action="store_true",
+        help="额外输出一份仅包含译文的 SRT 文件（自动在基础文件名上添加 .translated 后缀，需要设置 --translate）。",
+    )
+    parser.add_argument(
+        "--output-srt-bilingual",
+        action="store_true",
+        help="额外输出一份双语 SRT 文件（原文 + 译文，自动在基础文件名上添加 .bilingual 后缀，需要设置 --translate）。",
+    )
+    parser.add_argument(
         "--max-silence",
         type=float,
         default=1.0,
@@ -58,8 +80,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-chars-per-sentence",
         type=int,
-        default=80,
-        help="单句最大字符数（超过后尝试断句，默认: 80）。",
+        default=None,
+        help="单句最大字符数（超过后尝试断句，默认: 80，可通过环境变量 VID2SUBS_MAX_CHARS_PER_SENTENCE 配置）。",
     )
     parser.add_argument(
         "--translate",
@@ -79,6 +101,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="在 SRT 中输出双语字幕（原文 + 译文）。",
     )
+    parser.add_argument(
+        "--translated-only",
+        action="store_true",
+        help="在 SRT 中仅输出译文（不包含原文）。需要同时设置 --translate。",
+    )
     return parser
 
 
@@ -94,12 +121,17 @@ def main(argv: list[str] | None = None) -> int:
     input_path = args.input
     output_wav = args.output_wav
     output_srt = args.output_srt
+    output_srt_source = args.output_srt_source
+    output_srt_translated = args.output_srt_translated
+    output_srt_bilingual = args.output_srt_bilingual
     source_lang = args.lang
     asr_backend = args.asr_backend
+    device = None if args.device == "auto" else args.device
     use_vocal_separation = not args.no_vocal_sep
     translate_lang = args.translate
     translation_engine = args.translation_engine
     bilingual = args.bilingual
+    translated_only = args.translated_only
 
     try:
         config = Vid2SubsConfig.from_paths(
@@ -108,12 +140,17 @@ def main(argv: list[str] | None = None) -> int:
             use_vocal_separation=use_vocal_separation,
             source_lang=source_lang,
             asr_backend=asr_backend,
+            device=device,
             output_srt_path=output_srt,
+            output_srt_source_path=output_srt_source,
+            output_srt_translated_path=output_srt_translated,
+            output_srt_bilingual_path=output_srt_bilingual,
             max_silence=args.max_silence,
             max_chars_per_sentence=args.max_chars_per_sentence,
-             translate_lang=translate_lang,
-             translation_engine=translation_engine,
-             bilingual=bilingual,
+            translate_lang=translate_lang,
+            translation_engine=translation_engine,
+            bilingual=bilingual,
+            translated_only=translated_only,
         )
         pipeline = Vid2SubsPipeline(config)
         # 若指定了输出 SRT 或翻译，则执行完整字幕流程
