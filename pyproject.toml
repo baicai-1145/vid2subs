@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vid2subs"
-version = "0.1.0"
+version = "0.1.1"
 description = "Convert video or audio into time-aligned subtitles with optional vocal separation and translation."
 readme = "README.md"
 license = { file = "LICENSE" }

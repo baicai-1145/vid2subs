@@ -58,36 +58,48 @@ class Vid2SubsConfig:
         else:
             default_name = f"{input_path_obj.stem}_vocals_16k.wav"
             output_path_obj = input_path_obj.with_name(default_name)
+        # 基础 SRT 路径：用于派生其他输出文件名
+        base_srt = (
+            Path(output_srt_path).expanduser().resolve()
+            if output_srt_path is not None
+            else input_path_obj.with_suffix(".srt")
+        )
+
+        # 主输出：
+        # - 显式传入 --output-srt 时：始终写主输出；
+        # - 未传入 --output-srt 且也没有额外输出开关：默认写 <input>.srt；
+        # - 未传入 --output-srt 但有额外输出开关：不写主输出，避免与 .source 重复。
         if output_srt_path is not None:
-            output_srt_obj = Path(output_srt_path).expanduser().resolve()
+            output_srt_obj = base_srt
         else:
-            output_srt_obj = input_path_obj.with_suffix(".srt")
+            if not output_srt_source_path and not output_srt_translated_path and not output_srt_bilingual_path:
+                output_srt_obj = base_srt
+            else:
+                output_srt_obj = None
 
         output_srt_source_obj: Optional[Path]
         output_srt_translated_obj: Optional[Path]
         output_srt_bilingual_obj: Optional[Path]
 
-        # 如果传入的是显式路径则直接使用，否则如果为 True 则基于主 SRT 路径自动生成
-        base = output_srt_obj
-
+        # 如果传入的是显式路径则直接使用，否则如果为 True 则基于 base_srt 自动生成
         if isinstance(output_srt_source_path, (str, Path)):
             output_srt_source_obj = Path(output_srt_source_path).expanduser().resolve()
         elif output_srt_source_path:
-            output_srt_source_obj = base.with_name(base.stem + ".source.srt")
+            output_srt_source_obj = base_srt.with_name(base_srt.stem + ".source.srt")
         else:
             output_srt_source_obj = None
 
         if isinstance(output_srt_translated_path, (str, Path)):
             output_srt_translated_obj = Path(output_srt_translated_path).expanduser().resolve()
         elif output_srt_translated_path:
-            output_srt_translated_obj = base.with_name(base.stem + ".translated.srt")
+            output_srt_translated_obj = base_srt.with_name(base_srt.stem + ".translated.srt")
         else:
             output_srt_translated_obj = None
 
         if isinstance(output_srt_bilingual_path, (str, Path)):
             output_srt_bilingual_obj = Path(output_srt_bilingual_path).expanduser().resolve()
         elif output_srt_bilingual_path:
-            output_srt_bilingual_obj = base.with_name(base.stem + ".bilingual.srt")
+            output_srt_bilingual_obj = base_srt.with_name(base_srt.stem + ".bilingual.srt")
         else:
             output_srt_bilingual_obj = None
 

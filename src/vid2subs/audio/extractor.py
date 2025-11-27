@@ -50,6 +50,7 @@ def _download_file(url: str, dest_path: Path, timeout: int = 60) -> None:
 def _setup_pymss_separator() -> Optional["object"]:
     try:
         from pymss import MSSeparator, get_separation_logger  # type: ignore[import]
+        import logging
     except ImportError:
         print("未安装 pymss，将跳过人声分离，仅提取原始音频。")
         return None
@@ -84,29 +85,64 @@ def _setup_pymss_separator() -> Optional["object"]:
         print("未安装 PyTorch，将在 CPU 上进行人声分离")
 
     try:
-        separator = MSSeparator(
-            model_type=model_config["model_type"],
-            model_path=str(model_path),
-            config_path=str(config_path),
-            device=device,
-            device_ids=[0],
-            output_format="wav",
-            use_tta=False,
-            store_dirs={
-                "vocals": str(vocals_dir),
-                "other": None,
-            },
-            audio_params={
-                "wav_bit_depth": "FLOAT",
-            },
-            logger=get_separation_logger(),
-            debug=False,
-            inference_params={
-                "batch_size": 1,
-                "num_overlap": 1,
-                "chunk_size": 485100,
-            },
-        )
+        # 修复部分环境中 logger 缺少 console_handler 的问题：
+        # 预先获取名为 "logger" 的 logger，并确保其拥有 console_handler 属性。
+        base_logger = logging.getLogger("logger")
+        if not hasattr(base_logger, "console_handler"):
+            null_handler = logging.NullHandler()
+            base_logger.console_handler = null_handler  # type: ignore[attr-defined]
+            base_logger.addHandler(null_handler)
+
+        # 优先尝试使用 pymss 自带的 logger；若失败则回退为不传 logger
+        try:
+            logger = get_separation_logger()
+            separator = MSSeparator(
+                model_type=model_config["model_type"],
+                model_path=str(model_path),
+                config_path=str(config_path),
+                device=device,
+                device_ids=[0],
+                output_format="wav",
+                use_tta=False,
+                store_dirs={
+                    "vocals": str(vocals_dir),
+                    "other": None,
+                },
+                audio_params={
+                    "wav_bit_depth": "FLOAT",
+                },
+                logger=logger,
+                debug=False,
+                inference_params={
+                    "batch_size": 1,
+                    "num_overlap": 1,
+                    "chunk_size": 485100,
+                },
+            )
+        except Exception as logger_error:
+            print(f"pymss logger 初始化失败，将不使用自定义 logger: {logger_error}")
+            separator = MSSeparator(
+                model_type=model_config["model_type"],
+                model_path=str(model_path),
+                config_path=str(config_path),
+                device=device,
+                device_ids=[0],
+                output_format="wav",
+                use_tta=False,
+                store_dirs={
+                    "vocals": str(vocals_dir),
+                    "other": None,
+                },
+                audio_params={
+                    "wav_bit_depth": "FLOAT",
+                },
+                debug=False,
+                inference_params={
+                    "batch_size": 1,
+                    "num_overlap": 1,
+                    "chunk_size": 485100,
+                },
+            )
         print("pymss 分离器初始化完成")
         return separator
     except Exception as init_error:
