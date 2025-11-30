@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>字幕生成结果 · vid2subs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-color: #050505;
+        --card-bg: #101010;
+        --border-color: #2a2a2a;
+        --accent-color: #f5f5f5;
+        --muted-color: #9e9e9e;
+        --error-color: #ff4d4f;
+        --radius: 8px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-color);
+        color: var(--accent-color);
+        display: block;
+        padding: 24px 32px;
+      }
+      .shell {
+        width: 100%;
+        max-width: 1440px;
+        margin: 0 auto;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 20px 24px 24px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 20px;
+      }
+      header h1 {
+        font-size: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0;
+      }
+      header span {
+        font-size: 12px;
+        color: var(--muted-color);
+      }
+      .section-title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted-color);
+        margin: 12px 0 4px;
+      }
+      .summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .summary p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted-color);
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .btn {
+        padding: 7px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border-color);
+        background: #f5f5f5;
+        color: #050505;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-outline {
+        background: transparent;
+        color: var(--accent-color);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 12px;
+      }
+      th,
+      td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border-color);
+        text-align: left;
+      }
+      th {
+        font-weight: 500;
+        color: var(--muted-color);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      .index-col {
+        width: 40px;
+        color: var(--muted-color);
+      }
+      .time-col {
+        width: 160px;
+        color: var(--muted-color);
+      }
+      .player-shell {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.7fr);
+        gap: 18px;
+      }
+      .video-frame {
+        position: relative;
+        background: #000;
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        min-height: 220px;
+      }
+      .video-frame video {
+        width: 100%;
+        height: auto;
+        display: block;
+        background: #000;
+      }
+      .subtitle-overlay {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12%;
+        text-align: center;
+        padding: 0 24px;
+        pointer-events: none;
+      }
+      .subtitle-overlay span {
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgba(0, 0, 0, 0.65);
+        border-radius: 4px;
+        font-size: 16px;
+        line-height: 1.4;
+        color: #f5f5f5;
+        text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+      }
+      .preview-controls {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        font-size: 12px;
+        color: var(--muted-color);
+      }
+      .preview-controls label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .preview-controls input[type="file"] {
+        font-size: 12px;
+      }
+      .style-controls {
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .style-controls h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-color);
+      }
+      .style-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .style-row:last-child {
+        margin-bottom: 0;
+      }
+      .style-row label {
+        color: var(--muted-color);
+      }
+      .style-row input[type="range"] {
+        flex: 1;
+      }
+      .style-row select,
+      .style-row input[type="color"] {
+        background: #050505;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        color: var(--accent-color);
+        font-size: 12px;
+        padding: 2px 6px;
+      }
+      .error-box {
+        padding: 10px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--error-color);
+        color: var(--error-color);
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+      @media (max-width: 640px) {
+        .shell {
+          padding: 18px 16px;
+        }
+        .summary {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .player-shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <h1>vid2subs</h1>
+        <span>Job · {{ job_id }}</span>
+      </header>
+
+      {% if error %}
+      <div class="error-box">
+        处理失败：{{ error }}
+      </div>
+      {% endif %}
+
+      <div class="section-title">Result</div>
+      <div class="summary">
+        <p>
+          {% if total_count %} 共生成 {{ total_count }} 条字幕，下面预览前 {{
+          subtitles|length }} 条。 {% else %} 暂无字幕结果。 {% endif %}
+        </p>
+        <div class="actions">
+          <a href="/" class="btn btn-outline">返回首页</a>
+          {% if download_main_url %}
+          <a href="{{ download_main_url }}" class="btn">下载主 SRT</a>
+          {% endif %}
+          {% if download_source_url %}
+          <a href="{{ download_source_url }}" class="btn btn-outline">原文 SRT</a>
+          {% endif %}
+          {% if download_translated_url %}
+          <a href="{{ download_translated_url }}" class="btn btn-outline">译文 SRT</a>
+          {% endif %}
+          {% if download_bilingual_url %}
+          <a href="{{ download_bilingual_url }}" class="btn btn-outline">双语 SRT</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="section-title">Preview</div>
+      <div class="player-shell">
+        <div>
+          <div class="video-frame">
+            <video id="preview_video" controls></video>
+            <div id="subtitle_overlay" class="subtitle-overlay">
+              <span id="subtitle_text"></span>
+            </div>
+          </div>
+          <div class="preview-controls">
+            <label>
+              本地视频/音频文件
+              <input
+                id="preview_video_file"
+                type="file"
+                accept="video/*,audio/*"
+              />
+            </label>
+            <span id="preview_hint"
+              >选择本地文件后，可在此处预览字幕与样式效果（文件不会上传）。</span
+            >
+          </div>
+        </div>
+        <div class="style-controls">
+          <h3>Subtitle Style</h3>
+          <div class="style-row">
+            <label for="font_size">字号</label>
+            <input id="font_size" type="range" min="12" max="36" value="16" />
+          </div>
+          <div class="style-row">
+            <label for="font_color">颜色</label>
+            <input id="font_color" type="color" value="#f5f5f5" />
+          </div>
+          <div class="style-row">
+            <label for="position">位置</label>
+            <select id="position">
+              <option value="bottom" selected>底部</option>
+              <option value="middle">中部</option>
+              <option value="top">顶部</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {% if subtitles %}
+      <table>
+        <thead>
+          <tr>
+            <th class="index-col">#</th>
+            <th class="time-col">时间</th>
+            <th>文本</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in subtitles %}
+          <tr>
+            <td class="index-col">{{ item.index }}</td>
+            <td class="time-col">
+              {{ "%.2f"|format(item.start) }}s – {{ "%.2f"|format(item.end) }}s
+            </td>
+            <td>
+              {{ item.text }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+    <script>
+      (function () {
+        const videoEl = document.getElementById("preview_video");
+        const fileInput = document.getElementById("preview_video_file");
+        const overlayEl = document.getElementById("subtitle_overlay");
+        const textEl = document.getElementById("subtitle_text");
+        const fontSizeInput = document.getElementById("font_size");
+        const fontColorInput = document.getElementById("font_color");
+        const positionSelect = document.getElementById("position");
+
+        const subtitles = {{ subtitles_json|safe }};
+
+        let currentUrl = null;
+
+        function applyStyle() {
+          if (!overlayEl || !textEl) return;
+          const size = parseInt(fontSizeInput.value || "16", 10);
+          const color = fontColorInput.value || "#f5f5f5";
+          const pos = positionSelect.value || "bottom";
+
+          textEl.style.fontSize = size + "px";
+          textEl.style.color = color;
+
+          if (pos === "top") {
+            overlayEl.style.top = "10%";
+            overlayEl.style.bottom = "auto";
+          } else if (pos === "middle") {
+            overlayEl.style.top = "50%";
+            overlayEl.style.bottom = "auto";
+          } else {
+            overlayEl.style.top = "auto";
+            overlayEl.style.bottom = "12%";
+          }
+        }
+
+        function findSubtitleAt(time) {
+          // 简单线性扫描，后续如有需要可改为二分查找
+          for (let i = 0; i < subtitles.length; i++) {
+            const s = subtitles[i];
+            if (time >= s.start && time <= s.end) {
+              return s;
+            }
+          }
+          return null;
+        }
+
+        function handleTimeUpdate() {
+          if (!videoEl || !textEl) return;
+          const t = videoEl.currentTime || 0;
+          const sub = findSubtitleAt(t);
+          if (sub) {
+            textEl.textContent = sub.text || "";
+            overlayEl.style.opacity = "1";
+          } else {
+            textEl.textContent = "";
+            overlayEl.style.opacity = "0";
+          }
+        }
+
+        function handleFileChange(event) {
+          const file = event.target.files && event.target.files[0];
+          if (!file || !videoEl) return;
+
+          if (currentUrl) {
+            URL.revokeObjectURL(currentUrl);
+          }
+          currentUrl = URL.createObjectURL(file);
+          videoEl.src = currentUrl;
+          videoEl.currentTime = 0;
+          videoEl.play().catch(() => {});
+        }
+
+        if (fileInput && videoEl) {
+          fileInput.addEventListener("change", handleFileChange);
+          videoEl.addEventListener("timeupdate", handleTimeUpdate);
+        }
+
+        if (fontSizeInput) {
+          fontSizeInput.addEventListener("input", applyStyle);
+        }
+        if (fontColorInput) {
+          fontColorInput.addEventListener("input", applyStyle);
+        }
+        if (positionSelect) {
+          positionSelect.addEventListener("change", applyStyle);
+        }
+
+        applyStyle();
+      })();
+    </script>
+  </body>
+</html>

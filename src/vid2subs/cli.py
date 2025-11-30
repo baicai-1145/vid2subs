@@ -72,6 +72,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="额外输出一份双语 SRT 文件（原文 + 译文，自动在基础文件名上添加 .bilingual 后缀，需要设置 --translate）。",
     )
     parser.add_argument(
+        "--output-ass",
+        action="store_true",
+        help="额外输出一份 ASS 字幕文件（基于主 SRT 文件名自动生成 .ass，样式使用内置 Default）。",
+    )
+    parser.add_argument(
         "--max-silence",
         type=float,
         default=1.0,
@@ -124,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     output_srt_source = args.output_srt_source
     output_srt_translated = args.output_srt_translated
     output_srt_bilingual = args.output_srt_bilingual
+    output_ass = args.output_ass
     source_lang = args.lang
     asr_backend = args.asr_backend
     device = None if args.device == "auto" else args.device
@@ -145,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             output_srt_source_path=output_srt_source,
             output_srt_translated_path=output_srt_translated,
             output_srt_bilingual_path=output_srt_bilingual,
+            output_ass_path=output_ass,
             max_silence=args.max_silence,
             max_chars_per_sentence=args.max_chars_per_sentence,
             translate_lang=translate_lang,

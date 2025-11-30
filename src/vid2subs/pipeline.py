@@ -8,7 +8,7 @@ from .config import Vid2SubsConfig
 from .audio.extractor import extract_audio
 from .asr import Word, get_asr_engine
 from .segmentation import Sentence, words_to_sentences
-from .subtitles import SubtitleItem, sentences_to_subtitle_items, write_srt
+from .subtitles import SubtitleItem, sentences_to_subtitle_items, write_srt, write_ass
 from .translate.factory import get_translation_engine
 from .langdetect import detect_lang_code
 
@@ -150,5 +150,14 @@ class Vid2SubsPipeline:
                 self.config.output_srt_bilingual_path,
                 bilingual=True,
                 translated_only=False,
+            )
+
+        # 可选 ASS 输出：当前与主 SRT 使用相同的 bilingual / translated_only 语义
+        if getattr(self.config, "output_ass_path", None) is not None:
+            write_ass(
+                items,
+                self.config.output_ass_path,  # type: ignore[arg-type]
+                bilingual=self.config.bilingual,
+                translated_only=self.config.translated_only,
             )
         return items

@@ -1,0 +1,2396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ title or "vid2subs Web" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --radius: 8px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-color);
+        color: var(--accent-color);
+        display: block;
+        padding: 24px 32px;
+      }
+      /* 夜间主题（默认） */
+      body {
+        color-scheme: dark;
+        --bg-color: #050505;
+        --card-bg: #101010;
+        --border-color: #2a2a2a;
+        --accent-color: #f5f5f5;
+        --muted-color: #9e9e9e;
+        --error-color: #ff4d4f;
+        --input-bg: #050505;
+      }
+      /* 日间主题 */
+      body[data-theme="light"] {
+        color-scheme: light;
+        --bg-color: #f5f5f5;
+        --card-bg: #ffffff;
+        --border-color: #d0d0d0;
+        --accent-color: #111111;
+        --muted-color: #777777;
+        --error-color: #d32f2f;
+        --input-bg: #ffffff;
+      }
+      .shell {
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 20px 24px 24px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      header h1 {
+        font-size: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0;
+      }
+      header span {
+        font-size: 12px;
+        color: var(--muted-color);
+      }
+      .section-title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted-color);
+        margin: 12px 0 4px;
+      }
+      form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px 20px;
+        margin-top: 12px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      label {
+        font-size: 13px;
+        color: var(--muted-color);
+      }
+      input[type="file"],
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--input-bg);
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        color: var(--accent-color);
+        font-size: 13px;
+      }
+      input[type="file"]::file-selector-button {
+        padding: 6px 10px;
+        margin-right: 10px;
+        border: 1px solid var(--border-color);
+        background: transparent;
+        color: var(--accent-color);
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .checkbox-row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      .checkbox-row label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+      }
+      input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        accent-color: var(--accent-color);
+      }
+      .actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        align-items: center;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted-color);
+      }
+      button {
+        padding: 8px 18px;
+        border-radius: 999px;
+        border: 1px solid var(--border-color);
+        background: #f5f5f5;
+        color: #050505;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        opacity: 1;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      @media (max-width: 640px) {
+        body {
+          padding: 12px;
+        }
+        .shell {
+          padding: 16px;
+        }
+      }
+      .main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.2fr) minmax(0, 0.8fr);
+        gap: 18px;
+        margin-top: 12px;
+      }
+      .left-panel {
+        display: block;
+      }
+      .right-panel {
+        display: block;
+      }
+      .player-shell {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: minmax(0, 3.5fr) minmax(0, 1.5fr);
+        gap: 16px;
+      }
+      .video-frame {
+        position: relative;
+        background: #000;
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        min-height: 220px;
+      }
+      .video-frame video {
+        width: 100%;
+        height: auto;
+        display: block;
+        background: #000;
+      }
+      .subtitle-overlay {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12%;
+        text-align: center;
+        padding: 0 24px;
+        pointer-events: none;
+      }
+      .subtitle-overlay span {
+        display: inline-block;
+        padding: 4px 10px;
+        background: transparent;
+        border-radius: 0;
+        font-size: 16px;
+        line-height: 1.4;
+        color: #f5f5f5;
+        text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+        white-space: pre-line;
+      }
+      .preview-controls {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        font-size: 12px;
+        color: var(--muted-color);
+      }
+      .preview-controls label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .preview-controls input[type="file"] {
+        font-size: 12px;
+      }
+      .style-controls {
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+      .style-controls h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-color);
+      }
+      .style-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .style-row:last-child {
+        margin-bottom: 0;
+      }
+      .style-row label {
+        color: var(--muted-color);
+      }
+      .style-row input[type="range"] {
+        flex: 1;
+      }
+      .style-row select,
+      .style-row input[type="color"] {
+        background: var(--input-bg);
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        color: var(--accent-color);
+        font-size: 12px;
+        padding: 2px 6px;
+      }
+      .subtitle-list-panel {
+        margin-top: 8px;
+        max-height: 260px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        padding: 8px 10px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .subtitle-list-item {
+        padding: 3px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      }
+      body[data-theme="light"] .subtitle-list-item {
+        border-bottom-color: rgba(0, 0, 0, 0.06);
+      }
+      .subtitle-list-item:last-child {
+        border-bottom: none;
+      }
+      .subtitle-list-time {
+        color: var(--muted-color);
+        font-size: 11px;
+      }
+      .subtitle-list-text {
+        margin-top: 2px;
+      }
+      .subtitle-list-item.active {
+        background: rgba(255, 255, 255, 0.06);
+      }
+      body[data-theme="light"] .subtitle-list-item.active {
+        background: rgba(0, 0, 0, 0.06);
+      }
+      .subtitle-list-toolbar {
+        margin-top: 4px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        font-size: 11px;
+        color: var(--muted-color);
+      }
+      .subtitle-list-toolbar input[type="text"],
+      .subtitle-list-toolbar input[type="number"] {
+        background: var(--input-bg);
+        border-radius: 999px;
+        border: 1px solid var(--border-color);
+        color: var(--accent-color);
+        padding: 2px 8px;
+        font-size: 11px;
+        min-width: 80px;
+      }
+      .subtitle-list-toolbar button {
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border-color);
+        background: transparent;
+        color: var(--accent-color);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      body[data-theme="light"] .subtitle-list-toolbar button {
+        background: #f5f5f5;
+        color: #050505;
+      }
+      @media (max-width: 640px) {
+        .main-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .player-shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <h1>vid2subs</h1>
+          <span>Web · alpha</span>
+        </div>
+        <button type="button" id="theme_toggle" style="padding: 4px 10px; font-size: 11px">
+          夜间模式
+        </button>
+      </header>
+
+      <div class="main-grid">
+        <div class="left-panel">
+          <div class="section-title">Upload &amp; Options</div>
+          <p class="hint">
+            上传媒体文件并选择参数后，将在后台生成字幕任务，右侧可预览字幕效果。
+          </p>
+
+          <form id="job_form" method="post" action="/api/jobs" enctype="multipart/form-data">
+        <div class="field" style="grid-column: 1 / -1">
+          <label for="file">媒体文件（视频或音频）</label>
+          <input id="file" name="file" type="file" required />
+        </div>
+
+        <div class="field checkbox-row" style="grid-column: 1 / -1">
+          <label>
+            <input type="checkbox" name="no_vocal_sep" />
+            仅提取整体音频（不做人声分离）
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="lang">ASR 语言预设</label>
+          <select id="lang" name="lang">
+            <option value="EN">EN · 英文（Nemo）</option>
+            <option value="EU" selected>EU · 欧洲多语言（Nemo）</option>
+            <option value="AUTO">AUTO · 自动（SenseVoiceSmall）</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="asr_backend">ASR 引擎</label>
+          <select id="asr_backend" name="asr_backend">
+            <option value="auto" selected>auto</option>
+            <option value="nemo">nemo</option>
+            <option value="sensevoice">sensevoice</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="translate">目标翻译语言（可选）</label>
+          <select id="translate" name="translate">
+            <option value="">不翻译</option>
+            <option value="zh">中文（zh）</option>
+            <option value="en">英文（en）</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="translation_engine">翻译引擎</label>
+          <select id="translation_engine" name="translation_engine">
+            <option value="google">google</option>
+            <option value="m2m100">m2m100</option>
+            <option value="llm">llm</option>
+          </select>
+        </div>
+
+        <!-- Web 前端不再单独控制主 SRT 的双语/仅译文形态，逻辑统一在后端处理 -->
+
+        <div class="field checkbox-row" style="grid-column: 1 / -1">
+          <label>
+            <input type="checkbox" name="output_srt_bilingual" />
+            额外生成双语 SRT 文件（原文 + 译文）
+          </label>
+        </div>
+
+        <div class="actions" style="grid-column: 1 / -1">
+          <span class="hint" id="preprocess_status">
+            {% if browser_preprocess_enabled %}
+              浏览器端音频预处理已启用，支持本地转码后再上传。
+            {% else %}
+              当前为直接上传模式，长视频可能需要较长时间处理。
+            {% endif %}
+          </span>
+          <button type="submit">开始生成</button>
+        </div>
+          </form>
+
+          <div class="section-title">Recent Jobs</div>
+      {% if jobs %}
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 120px; color: var(--muted-color); font-size: 12px">
+              Job ID
+            </th>
+            <th style="color: var(--muted-color); font-size: 12px">输入文件</th>
+            <th
+              style="width: 180px; color: var(--muted-color); font-size: 12px"
+            >
+              创建时间
+            </th>
+            <th
+              style="width: 120px; color: var(--muted-color); font-size: 12px"
+            >
+              翻译
+            </th>
+            <th style="width: 80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs %}
+          <tr class="job-row" data-job-id="{{ job.job_id }}" style="cursor: pointer">
+            <td style="font-size: 12px; color: var(--muted-color)">
+              {{ job.job_id }}
+            </td>
+            <td style="font-size: 13px">
+              {{ job.input_name }}
+            </td>
+            <td style="font-size: 12px; color: var(--muted-color)">
+              {{ job.created_at }}
+            </td>
+            <td style="font-size: 12px; color: var(--muted-color)">
+              {% if job.translate_lang %}
+              {{ job.translation_engine or "n/a" }} → {{ job.translate_lang }}
+              {% else %} none {% endif %}
+            </td>
+            <td style="font-size: 12px">
+              <a
+                href="/download/{{ job.job_id }}/main"
+                class="btn btn-outline"
+                style="
+                  padding: 4px 10px;
+                  font-size: 11px;
+                  letter-spacing: 0.08em;
+                  text-transform: uppercase;
+                "
+                >SRT</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="hint">暂无历史任务，将在这里展示最近生成的字幕任务。</p>
+      {% endif %}
+        </div>
+
+        <div class="right-panel">
+          <div class="section-title">Preview</div>
+          <div class="player-shell">
+            <div>
+              <div class="video-frame">
+                <video id="preview_video" controls></video>
+                <div id="subtitle_overlay" class="subtitle-overlay">
+                  <span id="subtitle_text"></span>
+        </div>
+        </div>
+        <div id="subtitle_list_panel" class="subtitle-list-panel">
+          <div class="subtitle-list-empty">
+            当前暂无字幕内容。生成或从左侧任务列表加载后，将在此显示文本视图。
+          </div>
+        </div>
+        <div class="subtitle-list-toolbar">
+          <input
+            id="subtitle_search"
+            type="text"
+            placeholder="搜索字幕文本..."
+          />
+          <button type="button" id="subtitle_prev_btn">上一条</button>
+          <button type="button" id="subtitle_next_btn">下一条</button>
+        </div>
+              <div class="preview-controls">
+                <label>
+                  本地视频/音频文件
+                  <input
+                    id="preview_video_file"
+                    type="file"
+                    accept="video/*,audio/*"
+                  />
+                </label>
+                <span id="preview_hint"
+                  >选择本地文件后，可在此处预览字幕与样式效果（文件不会上传）。</span
+                >
+                <span style="margin-left:auto; font-size:11px;">
+                  导出轨道：
+                  <label style="margin-left:4px;">
+                    <input type="checkbox" id="export_track_source" checked />
+                    原文
+                  </label>
+                  <label style="margin-left:4px;">
+                    <input type="checkbox" id="export_track_translated" />
+                    译文
+                  </label>
+                  <label style="margin-left:4px;">
+                    <input type="checkbox" id="export_track_bilingual" />
+                    双语
+                  </label>
+                </span>
+              </div>
+            </div>
+            <div class="style-controls">
+              <h3>Subtitle Style</h3>
+              <div class="style-row">
+                <label for="track_mode">预览字幕轨道</label>
+                <select id="track_mode">
+                  <option value="source">仅原文</option>
+                  <option value="translated">仅译文</option>
+                  <option value="bilingual" selected>双语（原文 + 译文）</option>
+                </select>
+              </div>
+              <div class="style-row">
+                <label for="font_size">字号</label>
+                <input
+                  id="font_size"
+                  type="range"
+                  min="12"
+                  max="36"
+                  value="16"
+                />
+              </div>
+              <div class="style-row">
+                <label for="font_family">字体</label>
+                <input
+                  id="font_family"
+                  type="text"
+                  placeholder="例如: Arial / SimHei"
+                  style="
+                    width: 100%;
+                    padding: 2px 6px;
+                    border-radius: var(--radius);
+                    border: 1px solid var(--border-color);
+                    background: var(--input-bg);
+                    color: var(--accent-color);
+                    font-size: 12px;
+                  "
+                />
+              </div>
+              <div class="style-row">
+                <label for="font_color">颜色</label>
+                <input id="font_color" type="color" value="#f5f5f5" />
+              </div>
+              <div class="style-row">
+                <label for="position">位置</label>
+                <div style="display:flex; gap:6px; flex:1;">
+                  <select id="position" style="flex:1;">
+                    <option value="bottom" selected>底部</option>
+                    <option value="middle">中部</option>
+                    <option value="top">顶部</option>
+                  </select>
+                  <select id="align_h" style="flex:1;">
+                    <option value="center" selected>居中</option>
+                    <option value="left">靠左</option>
+                    <option value="right">靠右</option>
+                  </select>
+                </div>
+              </div>
+              <div class="style-row">
+                <label>字形</label>
+                <div style="display:flex; gap:6px;">
+                  <label style="display:flex; align-items:center; gap:4px;">
+                    <input type="checkbox" id="font_bold" />
+                    粗体
+                  </label>
+                  <label style="display:flex; align-items:center; gap:4px;">
+                    <input type="checkbox" id="font_italic" />
+                    倾斜
+                  </label>
+                </div>
+              </div>
+              <div class="style-row">
+                <label for="margin_v">垂直边距</label>
+                <input
+                  id="margin_v"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="30"
+                />
+              </div>
+              <div class="style-row">
+                <label for="outline_width">描边</label>
+                <div style="display:flex; gap:6px; align-items:center; flex:1;">
+                  <input
+                    id="outline_width"
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value="0"
+                    style="flex:1;"
+                  />
+                  <input
+                    id="outline_width_val"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value="0"
+                    style="
+                      width: 64px;
+                      padding: 2px 4px;
+                      border-radius: var(--radius);
+                      border: 1px solid var(--border-color);
+                      background: var(--input-bg);
+                      color: var(--accent-color);
+                      font-size: 11px;
+                    "
+                  />
+                </div>
+              </div>
+              <div class="style-row">
+                <label for="shadow_depth">阴影</label>
+                <div style="display:flex; gap:6px; align-items:center; flex:1;">
+                  <input
+                    id="shadow_depth"
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value="0"
+                    style="flex:1;"
+                  />
+                  <input
+                    id="shadow_depth_val"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value="0"
+                    style="
+                      width: 64px;
+                      padding: 2px 4px;
+                      border-radius: var(--radius);
+                      border: 1px solid var(--border-color);
+                      background: var(--input-bg);
+                      color: var(--accent-color);
+                      font-size: 11px;
+                    "
+                  />
+                </div>
+              </div>
+              <div
+                class="style-row"
+                style="flex-direction: column; align-items: stretch; gap: 4px"
+              >
+                <label for="subtitle_editor">当前字幕文本</label>
+                <textarea
+                  id="subtitle_editor"
+                  rows="3"
+                  style="
+                    width: 100%;
+                    resize: vertical;
+                    background: var(--input-bg);
+                    border-radius: var(--radius);
+                    border: 1px solid var(--border-color);
+                    color: var(--accent-color);
+                    font-size: 12px;
+                    padding: 6px 8px;
+                  "
+                ></textarea>
+                <div
+                  style="
+                    margin-top: 4px;
+                    display: flex;
+                    gap: 8px;
+                    justify-content: space-between;
+                    align-items: center;
+                  "
+                >
+                  <div style="display:flex; gap:6px; flex-wrap:wrap; font-size:11px;">
+                    <button
+                      type="button"
+                      id="undo_edit"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      撤销
+                    </button>
+                    <button
+                      type="button"
+                      id="split_subtitle"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      拆分
+                    </button>
+                    <button
+                      type="button"
+                      id="merge_prev_subtitle"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      合并上条
+                    </button>
+                    <button
+                      type="button"
+                      id="merge_next_subtitle"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      合并下条
+                    </button>
+                    <button
+                      type="button"
+                      id="delete_subtitle"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--error-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      删除当前
+                    </button>
+                    <button
+                      type="button"
+                      id="shift_left"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      ← 前移0.2s
+                    </button>
+                    <button
+                      type="button"
+                      id="shift_right"
+                      style="
+                        padding: 3px 8px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 10px;
+                        letter-spacing: 0.06em;
+                      "
+                    >
+                      后移0.2s →
+                    </button>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <button
+                      type="button"
+                      id="apply_subtitle_edit"
+                      style="
+                        padding: 4px 10px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: #f5f5f5;
+                        color: #050505;
+                        font-size: 11px;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
+                      "
+                    >
+                      保存当前句
+                    </button>
+                    <button
+                      type="button"
+                      id="download_srt"
+                      style="
+                        padding: 4px 10px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 11px;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
+                      "
+                    >
+                      导出编辑后 SRT
+                    </button>
+                    <button
+                      type="button"
+                      id="download_ass"
+                      style="
+                        padding: 4px 10px;
+                        border-radius: 999px;
+                        border: 1px solid var(--border-color);
+                        background: transparent;
+                        color: var(--accent-color);
+                        font-size: 11px;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
+                      "
+                    >
+                      导出编辑后 ASS
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+    <script>
+      (function () {
+        // 主题切换：黑白极简（暗/亮）
+        const themeToggleBtn = document.getElementById("theme_toggle");
+        const THEME_KEY = "vid2subs_theme";
+
+        function applyTheme(theme) {
+          const t = theme === "light" ? "light" : "dark";
+          document.body.dataset.theme = t === "light" ? "light" : "";
+          if (themeToggleBtn) {
+            themeToggleBtn.textContent = t === "light" ? "白天模式" : "夜间模式";
+          }
+          try {
+            window.localStorage.setItem(THEME_KEY, t);
+          } catch (_) {}
+        }
+
+        let initialTheme = "dark";
+        try {
+          const stored = window.localStorage.getItem(THEME_KEY);
+          if (stored === "light" || stored === "dark") {
+            initialTheme = stored;
+          } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+            initialTheme = "light";
+          }
+        } catch (_) {}
+        applyTheme(initialTheme);
+
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener("click", () => {
+            const next = document.body.dataset.theme === "light" ? "dark" : "light";
+            applyTheme(next);
+          });
+        }
+
+        const videoEl = document.getElementById("preview_video");
+        const fileInput = document.getElementById("preview_video_file");
+        const overlayEl = document.getElementById("subtitle_overlay");
+        const textEl = document.getElementById("subtitle_text");
+        const fontSizeInput = document.getElementById("font_size");
+        const fontFamilyInput = document.getElementById("font_family");
+        const fontColorInput = document.getElementById("font_color");
+        const positionSelect = document.getElementById("position");
+        const alignHSelect = document.getElementById("align_h");
+        const boldCheckbox = document.getElementById("font_bold");
+        const italicCheckbox = document.getElementById("font_italic");
+        const marginVInput = document.getElementById("margin_v");
+        const outlineWidthInput = document.getElementById("outline_width");
+        const outlineWidthValInput = document.getElementById("outline_width_val");
+        const shadowDepthInput = document.getElementById("shadow_depth");
+        const shadowDepthValInput = document.getElementById("shadow_depth_val");
+        const trackModeSelect = document.getElementById("track_mode");
+        const subtitleListPanel = document.getElementById("subtitle_list_panel");
+        const subtitleSearchInput = document.getElementById("subtitle_search");
+        const prevBtn = document.getElementById("subtitle_prev_btn");
+        const nextBtn = document.getElementById("subtitle_next_btn");
+        const subtitleEditor = document.getElementById("subtitle_editor");
+        const applyEditBtn = document.getElementById("apply_subtitle_edit");
+        const downloadSrtBtn = document.getElementById("download_srt");
+        const downloadAssBtn = document.getElementById("download_ass");
+        const exportSourceCb = document.getElementById("export_track_source");
+        const exportTranslatedCb = document.getElementById(
+          "export_track_translated"
+        );
+        const exportBilingualCb = document.getElementById(
+          "export_track_bilingual"
+        );
+        const undoBtn = document.getElementById("undo_edit");
+        const splitInlineBtn = document.getElementById("split_subtitle");
+        const mergePrevBtn = document.getElementById("merge_prev_subtitle");
+        const mergeNextBtn = document.getElementById("merge_next_subtitle");
+        const deleteBtn = document.getElementById("delete_subtitle");
+        const shiftLeftBtn = document.getElementById("shift_left");
+        const shiftRightBtn = document.getElementById("shift_right");
+
+        let currentSubtitles = [];
+        let currentUrl = null;
+        let currentSubtitleIndex = -1;
+        let hasTranslation = false;
+        let trackMode = "source";
+        const undoStack = [];
+        const UNDO_LIMIT = 50;
+
+        function applyStyle() {
+          if (!overlayEl || !textEl) return;
+          const size = parseInt(fontSizeInput.value || "16", 10);
+          const color = fontColorInput.value || "#f5f5f5";
+          const pos = positionSelect.value || "bottom";
+          const marginV = parseInt(marginVInput?.value || "30", 10);
+          const outline = parseFloat(
+            (outlineWidthValInput && outlineWidthValInput.value) ||
+              (outlineWidthInput && outlineWidthInput.value) ||
+              "2"
+          );
+          const shadow = parseFloat(
+            (shadowDepthValInput && shadowDepthValInput.value) ||
+              (shadowDepthInput && shadowDepthInput.value) ||
+              "0"
+          );
+
+          textEl.style.fontSize = size + "px";
+          textEl.style.color = color;
+          const fam = fontFamilyInput && fontFamilyInput.value.trim();
+          textEl.style.fontFamily = fam || "inherit";
+          textEl.style.fontWeight = boldCheckbox && boldCheckbox.checked ? "bold" : "normal";
+          textEl.style.fontStyle = italicCheckbox && italicCheckbox.checked ? "italic" : "normal";
+
+          // 垂直位置与边距
+          overlayEl.style.transform = "";
+          if (pos === "top") {
+            overlayEl.style.top = (isNaN(marginV) ? 30 : marginV) + "px";
+            overlayEl.style.bottom = "auto";
+          } else if (pos === "middle") {
+            overlayEl.style.top = "50%";
+            overlayEl.style.bottom = "auto";
+            overlayEl.style.transform = "translateY(-50%)";
+          } else {
+            overlayEl.style.top = "auto";
+            overlayEl.style.bottom = (isNaN(marginV) ? 30 : marginV) + "px";
+          }
+
+          // 水平对齐：左/中/右
+          const hAlign = alignHSelect ? alignHSelect.value || "center" : "center";
+          if (hAlign === "left") {
+            overlayEl.style.textAlign = "left";
+          } else if (hAlign === "right") {
+            overlayEl.style.textAlign = "right";
+          } else {
+            overlayEl.style.textAlign = "center";
+          }
+
+          // 实线描边：使用 text-stroke / -webkit-text-stroke
+          // 为避免描边过粗“吃掉”文字填充，这里将预览用的描边宽度限制在字号的 1/3 以内，
+          // ASS 导出的 Outline 仍然使用完整的数值。
+          let strokeWidth = !isNaN(outline) && outline > 0 ? outline : 0;
+          if (strokeWidth > 0 && size > 0) {
+            const maxStroke = size / 3;
+            strokeWidth = Math.min(strokeWidth, maxStroke);
+          }
+          const strokeColor = "#000000";
+          // WebKit/Blink
+          textEl.style.webkitTextStrokeWidth = strokeWidth ? `${strokeWidth}px` : "0px";
+          textEl.style.webkitTextStrokeColor = strokeColor;
+          // 其他实现（非标准，但部分浏览器支持）
+          textEl.style.textStrokeWidth = strokeWidth ? `${strokeWidth}px` : "0px";
+          textEl.style.textStrokeColor = strokeColor;
+
+          // 阴影：仅用 shadow 控制柔和投影，不再模拟描边
+          const shadows = [];
+          if (!isNaN(shadow) && shadow > 0) {
+            const s = shadow;
+            shadows.push(`${s}px ${s}px ${s + 1}px rgba(0,0,0,0.8)`);
+          }
+          textEl.style.textShadow = shadows.length ? shadows.join(", ") : "none";
+        }
+
+        function getDisplayText(sub, modeOverride) {
+          if (!sub) return "";
+          const base = (sub.text || "").toString();
+          const trans = (sub.translation || "").toString();
+          const mode =
+            modeOverride ||
+            (trackModeSelect ? trackModeSelect.value : trackMode);
+          if (mode === "translated") {
+            return trans || base;
+          }
+          if (mode === "bilingual") {
+            if (trans) {
+              return base ? base + "\n" + trans : trans;
+            }
+            return base;
+          }
+          // 默认仅原文
+          return base;
+        }
+
+        function recomputeHasTranslation() {
+          hasTranslation = currentSubtitles.some(
+            (s) =>
+              s &&
+              typeof s.translation === "string" &&
+              s.translation.trim() !== ""
+          );
+        }
+
+        function updateExportTrackControls() {
+          if (!exportSourceCb && !exportTranslatedCb && !exportBilingualCb) {
+            return;
+          }
+          // 原文轨默认可用，如用户手动取消则保留其选择
+          if (exportSourceCb && exportSourceCb.disabled) {
+            exportSourceCb.disabled = false;
+          }
+          if (exportTranslatedCb && exportBilingualCb) {
+            if (!hasTranslation) {
+              exportTranslatedCb.checked = false;
+              exportTranslatedCb.disabled = true;
+              exportBilingualCb.checked = false;
+              exportBilingualCb.disabled = true;
+            } else {
+              exportTranslatedCb.disabled = false;
+              exportBilingualCb.disabled = false;
+              // 如果用户还没选过，默认勾选译文轨
+              if (
+                !exportTranslatedCb.checked &&
+                !exportBilingualCb.checked
+              ) {
+                exportTranslatedCb.checked = true;
+              }
+            }
+          }
+        }
+
+        function snapshotSubtitles() {
+          return currentSubtitles.map((s) => ({
+            index: s.index,
+            start: s.start,
+            end: s.end,
+            text: s.text,
+            translation: s.translation,
+          }));
+        }
+
+        function pushUndo() {
+          undoStack.push(snapshotSubtitles());
+          if (undoStack.length > UNDO_LIMIT) {
+            undoStack.shift();
+          }
+        }
+
+        function restoreFromSnapshot(snap) {
+          currentSubtitles = snap.map((s) => ({
+            index: s.index,
+            start: s.start,
+            end: s.end,
+            text: s.text,
+            translation: s.translation,
+          }));
+          if (currentSubtitles.length === 0) {
+            currentSubtitleIndex = -1;
+          } else {
+            if (currentSubtitleIndex < 0 || currentSubtitleIndex >= currentSubtitles.length) {
+              currentSubtitleIndex = 0;
+            }
+          }
+          recomputeHasTranslation();
+          updateExportTrackControls();
+          renderSubtitleList();
+          handleTimeUpdate();
+        }
+
+        function findSubtitleAt(time) {
+          for (let i = 0; i < currentSubtitles.length; i++) {
+            const s = currentSubtitles[i];
+            if (time >= s.start && time <= s.end) {
+              return s;
+            }
+          }
+          return null;
+        }
+
+        function handleTimeUpdate() {
+          if (!videoEl || !textEl) return;
+          const t = videoEl.currentTime || 0;
+          const sub = findSubtitleAt(t);
+          if (sub) {
+            const display = getDisplayText(sub);
+            textEl.textContent = display || "";
+            overlayEl.style.opacity = "1";
+            currentSubtitleIndex = currentSubtitles.indexOf(sub);
+            if (subtitleEditor) {
+              subtitleEditor.value = display || "";
+            }
+          } else {
+            textEl.textContent = "";
+            overlayEl.style.opacity = "0";
+            currentSubtitleIndex = -1;
+          }
+        }
+
+       function renderSubtitleList() {
+          if (!subtitleListPanel) return;
+          subtitleListPanel.innerHTML = "";
+          if (!currentSubtitles.length) {
+            const empty = document.createElement("div");
+            empty.className = "subtitle-list-empty";
+            empty.textContent =
+              "当前暂无字幕内容。生成或从左侧任务列表加载后，将在此显示文本视图。";
+            subtitleListPanel.appendChild(empty);
+            return;
+          }
+          const frag = document.createDocumentFragment();
+          currentSubtitles.forEach((s, idx) => {
+            const item = document.createElement("div");
+            item.className = "subtitle-list-item";
+            if (idx === currentSubtitleIndex) {
+              item.classList.add("active");
+            }
+            item.dataset.idx = String(idx);
+            const timeEl = document.createElement("div");
+            timeEl.className = "subtitle-list-time";
+            timeEl.textContent = `${formatTimestamp(s.start || 0)} → ${formatTimestamp(
+              s.end || 0
+            )}`;
+            const textElDiv = document.createElement("div");
+            textElDiv.className = "subtitle-list-text";
+            textElDiv.textContent = getDisplayText(s);
+            item.appendChild(timeEl);
+            item.appendChild(textElDiv);
+            item.addEventListener("click", () => {
+              const i = parseInt(item.dataset.idx || "-1", 10);
+              if (!Number.isFinite(i) || i < 0 || i >= currentSubtitles.length) {
+                return;
+              }
+              selectSubtitle(i, true);
+            });
+            frag.appendChild(item);
+          });
+          subtitleListPanel.appendChild(frag);
+        }
+
+        function selectSubtitle(index, seek) {
+          if (index < 0 || index >= currentSubtitles.length) return;
+          currentSubtitleIndex = index;
+          const s = currentSubtitles[index];
+          if (seek && videoEl && typeof s.start === "number") {
+            videoEl.currentTime = Math.max(0, s.start + 0.01);
+          }
+          if (subtitleEditor) {
+            subtitleEditor.value = getDisplayText(s);
+          }
+          renderSubtitleList();
+          handleTimeUpdate();
+        }
+
+        function handleFileChange(event) {
+          const file = event.target.files && event.target.files[0];
+          if (!file || !videoEl) return;
+
+          if (currentUrl) {
+            URL.revokeObjectURL(currentUrl);
+          }
+          currentUrl = URL.createObjectURL(file);
+          videoEl.src = currentUrl;
+          videoEl.currentTime = 0;
+          videoEl.play().catch(() => {});
+        }
+
+        if (fileInput && videoEl) {
+          fileInput.addEventListener("change", handleFileChange);
+          videoEl.addEventListener("timeupdate", handleTimeUpdate);
+        }
+
+        if (fontSizeInput) {
+          fontSizeInput.addEventListener("input", applyStyle);
+        }
+        if (fontFamilyInput) {
+          fontFamilyInput.addEventListener("input", applyStyle);
+        }
+        if (fontColorInput) {
+          fontColorInput.addEventListener("input", applyStyle);
+        }
+        if (positionSelect) {
+          positionSelect.addEventListener("change", applyStyle);
+        }
+        if (alignHSelect) {
+          alignHSelect.addEventListener("change", applyStyle);
+        }
+        if (marginVInput) {
+          marginVInput.addEventListener("input", applyStyle);
+        }
+        if (outlineWidthInput) {
+          outlineWidthInput.addEventListener("input", () => {
+            if (outlineWidthValInput) {
+              outlineWidthValInput.value = outlineWidthInput.value;
+            }
+            applyStyle();
+          });
+        }
+        if (outlineWidthValInput) {
+          outlineWidthValInput.addEventListener("input", () => {
+            let v = parseFloat(outlineWidthValInput.value || "0");
+            if (!Number.isFinite(v)) v = 0;
+            if (v < 0) v = 0;
+            if (v > 10) v = 10;
+            outlineWidthValInput.value = String(v);
+            if (outlineWidthInput) {
+              outlineWidthInput.value = String(v);
+            }
+            applyStyle();
+          });
+        }
+        if (shadowDepthInput) {
+          shadowDepthInput.addEventListener("input", () => {
+            if (shadowDepthValInput) {
+              shadowDepthValInput.value = shadowDepthInput.value;
+            }
+            applyStyle();
+          });
+        }
+        if (shadowDepthValInput) {
+          shadowDepthValInput.addEventListener("input", () => {
+            let v = parseFloat(shadowDepthValInput.value || "0");
+            if (!Number.isFinite(v)) v = 0;
+            if (v < 0) v = 0;
+            if (v > 10) v = 10;
+            shadowDepthValInput.value = String(v);
+            if (shadowDepthInput) {
+              shadowDepthInput.value = String(v);
+            }
+            applyStyle();
+          });
+        }
+        if (boldCheckbox) {
+          boldCheckbox.addEventListener("change", applyStyle);
+        }
+        if (italicCheckbox) {
+          italicCheckbox.addEventListener("change", applyStyle);
+        }
+        if (trackModeSelect) {
+          trackMode = trackModeSelect.value || "source";
+          trackModeSelect.addEventListener("change", () => {
+            trackMode = trackModeSelect.value || "source";
+            handleTimeUpdate();
+            renderSubtitleList();
+          });
+        }
+
+        if (prevBtn) {
+          prevBtn.addEventListener("click", () => {
+            if (!currentSubtitles.length) return;
+            const idx =
+              currentSubtitleIndex > 0
+                ? currentSubtitleIndex - 1
+                : currentSubtitles.length - 1;
+            selectSubtitle(idx, true);
+          });
+        }
+
+        if (nextBtn) {
+          nextBtn.addEventListener("click", () => {
+            if (!currentSubtitles.length) return;
+            const idx =
+              currentSubtitleIndex >= 0 &&
+              currentSubtitleIndex < currentSubtitles.length - 1
+                ? currentSubtitleIndex + 1
+                : 0;
+            selectSubtitle(idx, true);
+          });
+        }
+
+        if (subtitleSearchInput) {
+          subtitleSearchInput.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter") return;
+            const q = subtitleSearchInput.value.trim();
+            if (!q) return;
+            const lowerQ = q.toLowerCase();
+            const startIdx = currentSubtitleIndex >= 0 ? currentSubtitleIndex : 0;
+            let found = -1;
+            for (let i = 0; i < currentSubtitles.length; i++) {
+              const idx = (startIdx + i) % currentSubtitles.length;
+              const s = currentSubtitles[idx];
+              const combined = `${s.text || ""}\n${s.translation || ""}`.toLowerCase();
+              if (combined.includes(lowerQ)) {
+                found = idx;
+                break;
+              }
+            }
+            if (found >= 0) {
+              selectSubtitle(found, true);
+            }
+          });
+        }
+
+        if (undoBtn) {
+          undoBtn.addEventListener("click", () => {
+            if (!undoStack.length) return;
+            const snap = undoStack.pop();
+            if (snap) {
+              restoreFromSnapshot(snap);
+            }
+          });
+        }
+
+        if (shiftLeftBtn) {
+          shiftLeftBtn.addEventListener("click", () => {
+            if (currentSubtitleIndex < 0 || !currentSubtitles.length) return;
+            const s = currentSubtitles[currentSubtitleIndex];
+            pushUndo();
+            const delta = -0.2;
+            const start = Math.max(0, (s.start || 0) + delta);
+            const end = (s.end || 0) + delta;
+            s.start = start;
+            s.end = Math.max(start, end);
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        if (shiftRightBtn) {
+          shiftRightBtn.addEventListener("click", () => {
+            if (currentSubtitleIndex < 0 || !currentSubtitles.length) return;
+            const s = currentSubtitles[currentSubtitleIndex];
+            pushUndo();
+            const delta = 0.2;
+            const start = Math.max(0, (s.start || 0) + delta);
+            const end = (s.end || 0) + delta;
+            s.start = start;
+            s.end = Math.max(start, end);
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        function reindexSubtitles() {
+          currentSubtitles.forEach((s, i) => {
+            s.index = i + 1;
+          });
+        }
+
+        if (mergePrevBtn) {
+          mergePrevBtn.addEventListener("click", () => {
+            if (
+              currentSubtitleIndex <= 0 ||
+              currentSubtitleIndex >= currentSubtitles.length
+            ) {
+              return;
+            }
+            pushUndo();
+            const idx = currentSubtitleIndex;
+            const prev = currentSubtitles[idx - 1];
+            const cur = currentSubtitles[idx];
+            prev.text = `${prev.text || ""} ${cur.text || ""}`.trim();
+            if (prev.translation || cur.translation) {
+              prev.translation = `${prev.translation || ""} ${cur.translation || ""}`.trim();
+            }
+            prev.end = Math.max(prev.end, cur.end);
+            currentSubtitles.splice(idx, 1);
+            reindexSubtitles();
+            currentSubtitleIndex = idx - 1;
+            if (subtitleEditor) {
+              subtitleEditor.value = getDisplayText(prev);
+            }
+            recomputeHasTranslation();
+            updateExportTrackControls();
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        if (deleteBtn) {
+          deleteBtn.addEventListener("click", () => {
+            if (currentSubtitleIndex < 0 || !currentSubtitles.length) return;
+            pushUndo();
+            currentSubtitles.splice(currentSubtitleIndex, 1);
+            reindexSubtitles();
+            if (currentSubtitles.length === 0) {
+              currentSubtitleIndex = -1;
+            } else if (currentSubtitleIndex >= currentSubtitles.length) {
+              currentSubtitleIndex = currentSubtitles.length - 1;
+            }
+            if (currentSubtitleIndex >= 0 && subtitleEditor) {
+              subtitleEditor.value = getDisplayText(
+                currentSubtitles[currentSubtitleIndex]
+              );
+            }
+            recomputeHasTranslation();
+            updateExportTrackControls();
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        if (mergeNextBtn) {
+          mergeNextBtn.addEventListener("click", () => {
+            if (
+              currentSubtitleIndex < 0 ||
+              currentSubtitleIndex >= currentSubtitles.length - 1
+            ) {
+              return;
+            }
+            pushUndo();
+            const idx = currentSubtitleIndex;
+            const cur = currentSubtitles[idx];
+            const next = currentSubtitles[idx + 1];
+            cur.text = `${cur.text || ""} ${next.text || ""}`.trim();
+            if (cur.translation || next.translation) {
+              cur.translation = `${cur.translation || ""} ${next.translation || ""}`.trim();
+            }
+            cur.end = Math.max(cur.end, next.end);
+            currentSubtitles.splice(idx + 1, 1);
+            reindexSubtitles();
+            if (subtitleEditor) {
+              subtitleEditor.value = getDisplayText(cur);
+            }
+            recomputeHasTranslation();
+            updateExportTrackControls();
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        if (splitInlineBtn) {
+          splitInlineBtn.addEventListener("click", () => {
+            if (
+              currentSubtitleIndex < 0 ||
+              currentSubtitleIndex >= currentSubtitles.length ||
+              !subtitleEditor
+            ) {
+              return;
+            }
+            const sub = currentSubtitles[currentSubtitleIndex];
+            const full = subtitleEditor.value || "";
+            const len = full.length;
+            if (!full.trim() || len < 2) {
+              return;
+            }
+            let pos = subtitleEditor.selectionStart || 0;
+            if (pos <= 0 || pos >= len) {
+              pos = Math.floor(len / 2);
+            }
+            let left = full.slice(0, pos).trim();
+            let right = full.slice(pos).trim();
+            if (!left || !right) {
+              return;
+            }
+
+            pushUndo();
+
+            // 按文本比例划分时间
+            const totalDur = (sub.end || 0) - (sub.start || 0);
+            const ratio = left.length / len;
+            const mid = sub.start + totalDur * ratio;
+
+            const newSub = {
+              index: sub.index + 1,
+              start: mid,
+              end: sub.end,
+              text: right,
+              translation: sub.translation,
+            };
+            sub.text = left;
+            sub.end = mid;
+
+            currentSubtitles.splice(currentSubtitleIndex + 1, 0, newSub);
+            reindexSubtitles();
+            currentSubtitleIndex = currentSubtitleIndex + 1;
+            if (subtitleEditor) {
+              subtitleEditor.value = getDisplayText(newSub);
+            }
+            recomputeHasTranslation();
+            updateExportTrackControls();
+            renderSubtitleList();
+            handleTimeUpdate();
+          });
+        }
+
+        applyStyle();
+
+        // 暴露给表单提交逻辑，用于更新当前预览字幕
+        window.updatePreviewSubtitles = function (subtitles) {
+          currentSubtitles = Array.isArray(subtitles) ? subtitles : [];
+          // 检测是否存在译文
+          recomputeHasTranslation();
+          if (trackModeSelect) {
+            if (!hasTranslation) {
+              trackModeSelect.value = "source";
+            } else if (trackModeSelect.value === "source") {
+              trackModeSelect.value = "bilingual";
+            }
+            trackMode = trackModeSelect.value || "source";
+          }
+          // 重置当前编辑状态
+          currentSubtitleIndex = -1;
+          if (subtitleEditor) {
+            subtitleEditor.value = "";
+          }
+          handleTimeUpdate();
+          renderSubtitleList();
+          updateExportTrackControls();
+        };
+
+        // 任务列表点击时从后端加载字幕
+        const rows = document.querySelectorAll("tr.job-row");
+        rows.forEach((row) => {
+          row.addEventListener("click", async () => {
+            const jobId = row.getAttribute("data-job-id");
+            if (!jobId) return;
+            try {
+              const resp = await fetch(`/api/jobs/${jobId}`);
+              if (!resp.ok) {
+                console.error("加载任务失败:", resp.status, await resp.text());
+                return;
+              }
+              const data = await resp.json();
+              if (Array.isArray(data.subtitles)) {
+                window.updatePreviewSubtitles(data.subtitles);
+              }
+            } catch (e) {
+              console.error("加载任务失败:", e);
+            }
+          });
+        });
+
+        function formatTimestamp(seconds) {
+          if (!isFinite(seconds)) seconds = 0;
+          let totalMs = Math.round(seconds * 1000);
+          if (totalMs < 0) totalMs = 0;
+          const ms = totalMs % 1000;
+          const totalSeconds = Math.floor(totalMs / 1000);
+          const s = totalSeconds % 60;
+          const totalMinutes = Math.floor(totalSeconds / 60);
+          const m = totalMinutes % 60;
+          const h = Math.floor(totalMinutes / 60);
+          const pad = (n, width) => String(n).padStart(width, "0");
+          return `${pad(h, 2)}:${pad(m, 2)}:${pad(s, 2)},${pad(ms, 3)}`;
+        }
+
+        function buildSrtText(subtitles, modeOverride) {
+          const lines = [];
+          subtitles.forEach((s, idx) => {
+            const index = s.index || idx + 1;
+            const start = formatTimestamp(s.start || 0);
+            const end = formatTimestamp(s.end || 0);
+            const text = getDisplayText(s, modeOverride);
+            if (!text.trim()) {
+              return;
+            }
+            lines.push(String(index));
+            lines.push(`${start} --> ${end}`);
+            lines.push(text);
+            lines.push("");
+          });
+          return lines.join("\n").trim() + "\n";
+        }
+
+        function cssColorToAss(color) {
+          // 将 #RRGGBB 转换为 &H00BBGGRR
+          if (!color || typeof color !== "string") {
+            return "&H00FFFFFF";
+          }
+          const hex = color.replace("#", "").trim();
+          if (hex.length !== 6) {
+            return "&H00FFFFFF";
+          }
+          const r = hex.slice(0, 2);
+          const g = hex.slice(2, 4);
+          const b = hex.slice(4, 6);
+          return `&H00${b.toUpperCase()}${g.toUpperCase()}${r.toUpperCase()}`;
+        }
+
+        function formatAssTimestamp(seconds) {
+          if (!isFinite(seconds)) seconds = 0;
+          let totalCs = Math.round(seconds * 100); // centiseconds
+          if (totalCs < 0) totalCs = 0;
+          const cs = totalCs % 100;
+          const totalSeconds = Math.floor(totalCs / 100);
+          const s = totalSeconds % 60;
+          const totalMinutes = Math.floor(totalSeconds / 60);
+          const m = totalMinutes % 60;
+          const h = Math.floor(totalMinutes / 60);
+          const pad = (n, width) => String(n).padStart(width, "0");
+          // H:MM:SS.cc
+          return `${h}:${pad(m, 2)}:${pad(s, 2)}.${pad(cs, 2)}`;
+        }
+
+        function buildAssTextForMode(subtitles, modeOverride) {
+          // 优先使用当前预览视频的实际分辨率；若不可用则回退到 1920x1080
+          let playResX = 1920;
+          let playResY = 1080;
+          if (
+            videoEl &&
+            typeof videoEl.videoWidth === "number" &&
+            typeof videoEl.videoHeight === "number" &&
+            videoEl.videoWidth > 0 &&
+            videoEl.videoHeight > 0
+          ) {
+            playResX = videoEl.videoWidth;
+            playResY = videoEl.videoHeight;
+          }
+
+          const fontSize = parseInt(fontSizeInput.value || "16", 10);
+          const displayHeight =
+            (videoEl && (videoEl.clientHeight || videoEl.offsetHeight)) || 0;
+          let assFontSize;
+          if (displayHeight > 0 && playResY > 0 && !isNaN(fontSize)) {
+            // 让 ASS 字号在视频高度中的占比与预览中字占预览高度的占比一致
+            const ratio = fontSize / displayHeight;
+            assFontSize = Math.max(8, Math.round(ratio * playResY));
+          } else {
+            // 回退：使用一个简单比例
+            assFontSize = isNaN(fontSize) ? 16 : fontSize * 3;
+          }
+          const primaryColour = cssColorToAss(fontColorInput.value || "#f5f5f5");
+
+          const pos = positionSelect.value || "bottom";
+          const hAlign = alignHSelect ? alignHSelect.value || "center" : "center";
+          let alignment = 2; // bottom center
+          if (pos === "top") {
+            if (hAlign === "left") alignment = 7;
+            else if (hAlign === "right") alignment = 9;
+            else alignment = 8;
+          } else if (pos === "middle") {
+            if (hAlign === "left") alignment = 4;
+            else if (hAlign === "right") alignment = 6;
+            else alignment = 5;
+          } else {
+            // bottom
+            if (hAlign === "left") alignment = 1;
+            else if (hAlign === "right") alignment = 3;
+            else alignment = 2;
+          }
+
+          const marginV = parseInt(marginVInput?.value || "30", 10);
+          const outline = parseFloat(
+            (outlineWidthValInput && outlineWidthValInput.value) ||
+              (outlineWidthInput && outlineWidthInput.value) ||
+              "2"
+          );
+          const shadow = parseFloat(
+            (shadowDepthValInput && shadowDepthValInput.value) ||
+              (shadowDepthInput && shadowDepthInput.value) ||
+              "0"
+          );
+          let assMarginV;
+          if (displayHeight > 0 && playResY > 0 && !isNaN(marginV)) {
+            const ratioM = marginV / displayHeight;
+            assMarginV = Math.max(0, Math.round(ratioM * playResY));
+          } else {
+            assMarginV = isNaN(marginV) ? 30 : marginV;
+          }
+          const assOutline = isNaN(outline) ? 2 : outline;
+          const assShadow = isNaN(shadow) ? 0 : shadow;
+          const boldFlag = boldCheckbox && boldCheckbox.checked ? -1 : 0;
+          const italicFlag = italicCheckbox && italicCheckbox.checked ? -1 : 0;
+          const fontName =
+            (fontFamilyInput && fontFamilyInput.value.trim()) || "Arial";
+
+          const headerLines = [
+            "[Script Info]",
+            "ScriptType: v4.00+",
+            `PlayResX: ${playResX}`,
+            `PlayResY: ${playResY}`,
+            "ScaledBorderAndShadow: yes",
+            "",
+            "[V4+ Styles]",
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+            `Style: Default,${fontName},${assFontSize},${primaryColour},&H000000FF,&H00000000,&H64000000,${boldFlag},${italicFlag},0,0,100,100,0,0,1,${assOutline},${assShadow},${alignment},10,10,${assMarginV},1`,
+            "",
+            "[Events]",
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+          ];
+
+          const eventLines = [];
+          subtitles.forEach((s, idx) => {
+            const index = s.index || idx + 1;
+            const start = formatAssTimestamp(s.start || 0);
+            const end = formatAssTimestamp(s.end || 0);
+            const text = getDisplayText(s, modeOverride);
+            if (!text.trim()) return;
+
+            // 先对反斜杠与花括号做转义，再把换行替换为 ASS 的 \N
+            let safeText = text
+              .replace(/\\/g, "\\\\")
+              .replace(/{/g, "\\{")
+              .replace(/}/g, "\\}");
+            safeText = safeText.replace(/\r?\n/g, "\\N");
+            eventLines.push(
+              `Dialogue: 0,${start},${end},Default,,0,0,0,,${safeText}`
+            );
+          });
+
+          return [...headerLines, ...eventLines].join("\n") + "\n";
+        }
+
+        function buildAssText(subtitles) {
+          return buildAssTextForMode(subtitles, null);
+        }
+
+        if (applyEditBtn && subtitleEditor) {
+          applyEditBtn.addEventListener("click", () => {
+            if (
+              currentSubtitleIndex < 0 ||
+              currentSubtitleIndex >= currentSubtitles.length
+            ) {
+              return;
+            }
+            const raw = subtitleEditor.value || "";
+            const sub = currentSubtitles[currentSubtitleIndex];
+            const mode =
+              trackModeSelect && trackModeSelect.value
+                ? trackModeSelect.value
+                : trackMode;
+
+            if (mode === "translated") {
+              sub.translation = raw;
+            } else if (mode === "bilingual") {
+              const parts = raw.split(/\r?\n/);
+              sub.text = (parts[0] || "").trim();
+              sub.translation = parts.slice(1).join("\n").trim() || "";
+            } else {
+              // 默认视为原文轨编辑
+              sub.text = raw;
+            }
+
+            const display = getDisplayText(sub);
+            textEl.textContent = display || "";
+            recomputeHasTranslation();
+            updateExportTrackControls();
+            renderSubtitleList();
+          });
+        }
+
+        // 仅保留搜索与上一条/下一条跳转，不提供拆分/合并/时间漂移等复杂编辑
+
+        if (downloadSrtBtn) {
+          downloadSrtBtn.addEventListener("click", () => {
+            if (!currentSubtitles.length) {
+              return;
+            }
+            const srt = buildSrtText(currentSubtitles, null);
+            const blob = new Blob([srt], {
+              type: "text/plain; charset=utf-8",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "edited_subtitles.srt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
+        }
+
+        if (downloadAssBtn) {
+          downloadAssBtn.addEventListener("click", () => {
+            if (!currentSubtitles.length) {
+              return;
+            }
+            const ass = buildAssText(currentSubtitles);
+            const blob = new Blob([ass], {
+              type: "text/plain; charset=utf-8",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "edited_subtitles.ass";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
+        }
+
+        // 暴露给其他脚本（如 mkv 导出）使用
+        window.getCurrentSubtitles = function () {
+          return currentSubtitles.slice();
+        };
+        window.buildAssFromCurrent = function () {
+          return buildAssText(currentSubtitles);
+        };
+        window.buildAssForMode = function (mode) {
+          return buildAssTextForMode(currentSubtitles, mode || null);
+        };
+      })();
+    </script>
+    <script type="module">
+      const form = document.getElementById("job_form");
+      const fileInput = document.getElementById("file");
+      const statusEl = document.getElementById("preprocess_status");
+      const langSelect = document.getElementById("lang");
+      const asrBackendSelect = document.getElementById("asr_backend");
+      const translateSelect = document.getElementById("translate");
+      const translationEngineSelect = document.getElementById("translation_engine");
+
+      // 是否启用浏览器端预处理由后端 .env 控制
+      const ENABLE_BROWSER_PREPROCESS = {{ "true" if browser_preprocess_enabled else "false" }};
+
+      let ffmpegInstance = null;
+
+      function updateStatus(msg) {
+        if (statusEl) {
+          statusEl.textContent = msg;
+        }
+        console.debug("[vid2subs][preprocess]", msg);
+      }
+
+      // 根据 ASR 引擎动态调整语言预设，避免明显冲突
+      function syncAsrLangOptions() {
+        if (!langSelect || !asrBackendSelect) return;
+        const backend = asrBackendSelect.value;
+        const options = Array.from(langSelect.options);
+        options.forEach((opt) => {
+          opt.disabled = false;
+          opt.hidden = false;
+        });
+        if (backend === "nemo") {
+          options.forEach((opt) => {
+            if (opt.value !== "EN" && opt.value !== "EU") {
+              opt.disabled = true;
+              opt.hidden = true;
+            }
+          });
+          if (langSelect.value !== "EN" && langSelect.value !== "EU") {
+            langSelect.value = "EU";
+          }
+        } else if (backend === "sensevoice") {
+          // 对 SenseVoice 建议使用 AUTO
+          options.forEach((opt) => {
+            opt.disabled = false;
+            opt.hidden = false;
+          });
+          langSelect.value = "AUTO";
+        }
+      }
+
+      if (asrBackendSelect) {
+        asrBackendSelect.addEventListener("change", syncAsrLangOptions);
+      }
+      syncAsrLangOptions();
+
+      // 翻译目标语言选项：根据翻译引擎提供预设
+      // 使用与 M2M100 对齐的 100+1 语言列表（同 docs/m2m100_lang_codes.md）
+      const M2M_LANG_OPTIONS = [
+        { value: "", label: "不翻译" },
+        { value: "af", label: "Afrikaans (af)" },
+        { value: "am", label: "Amharic (am)" },
+        { value: "ar", label: "Arabic (ar)" },
+        { value: "ast", label: "Asturian (ast)" },
+        { value: "az", label: "Azerbaijani (az)" },
+        { value: "ba", label: "Bashkir (ba)" },
+        { value: "be", label: "Belarusian (be)" },
+        { value: "bg", label: "Bulgarian (bg)" },
+        { value: "bn", label: "Bengali (bn)" },
+        { value: "br", label: "Breton (br)" },
+        { value: "bs", label: "Bosnian (bs)" },
+        { value: "ca", label: "Catalan; Valencian (ca)" },
+        { value: "ceb", label: "Cebuano (ceb)" },
+        { value: "cs", label: "Czech (cs)" },
+        { value: "cy", label: "Welsh (cy)" },
+        { value: "da", label: "Danish (da)" },
+        { value: "de", label: "German (de)" },
+        { value: "el", label: "Greek (el)" },
+        { value: "en", label: "English (en)" },
+        { value: "es", label: "Spanish (es)" },
+        { value: "et", label: "Estonian (et)" },
+        { value: "fa", label: "Persian (fa)" },
+        { value: "ff", label: "Fulah (ff)" },
+        { value: "fi", label: "Finnish (fi)" },
+        { value: "fr", label: "French (fr)" },
+        { value: "fy", label: "Western Frisian (fy)" },
+        { value: "ga", label: "Irish (ga)" },
+        { value: "gd", label: "Gaelic; Scottish Gaelic (gd)" },
+        { value: "gl", label: "Galician (gl)" },
+        { value: "gu", label: "Gujarati (gu)" },
+        { value: "ha", label: "Hausa (ha)" },
+        { value: "he", label: "Hebrew (he)" },
+        { value: "hi", label: "Hindi (hi)" },
+        { value: "hr", label: "Croatian (hr)" },
+        { value: "ht", label: "Haitian; Haitian Creole (ht)" },
+        { value: "hu", label: "Hungarian (hu)" },
+        { value: "hy", label: "Armenian (hy)" },
+        { value: "id", label: "Indonesian (id)" },
+        { value: "ig", label: "Igbo (ig)" },
+        { value: "ilo", label: "Iloko (ilo)" },
+        { value: "is", label: "Icelandic (is)" },
+        { value: "it", label: "Italian (it)" },
+        { value: "ja", label: "Japanese (ja)" },
+        { value: "jv", label: "Javanese (jv)" },
+        { value: "ka", label: "Georgian (ka)" },
+        { value: "kk", label: "Kazakh (kk)" },
+        { value: "km", label: "Central Khmer (km)" },
+        { value: "kn", label: "Kannada (kn)" },
+        { value: "ko", label: "Korean (ko)" },
+        { value: "lb", label: "Luxembourgish; Letzeburgesch (lb)" },
+        { value: "lg", label: "Ganda (lg)" },
+        { value: "ln", label: "Lingala (ln)" },
+        { value: "lo", label: "Lao (lo)" },
+        { value: "lt", label: "Lithuanian (lt)" },
+        { value: "lv", label: "Latvian (lv)" },
+        { value: "mg", label: "Malagasy (mg)" },
+        { value: "mk", label: "Macedonian (mk)" },
+        { value: "ml", label: "Malayalam (ml)" },
+        { value: "mn", label: "Mongolian (mn)" },
+        { value: "mr", label: "Marathi (mr)" },
+        { value: "ms", label: "Malay (ms)" },
+        { value: "my", label: "Burmese (my)" },
+        { value: "ne", label: "Nepali (ne)" },
+        { value: "nl", label: "Dutch; Flemish (nl)" },
+        { value: "no", label: "Norwegian (no)" },
+        { value: "ns", label: "Northern Sotho (ns)" },
+        { value: "oc", label: "Occitan (post 1500) (oc)" },
+        { value: "or", label: "Oriya (or)" },
+        { value: "pa", label: "Panjabi; Punjabi (pa)" },
+        { value: "pl", label: "Polish (pl)" },
+        { value: "ps", label: "Pushto; Pashto (ps)" },
+        { value: "pt", label: "Portuguese (pt)" },
+        { value: "ro", label: "Romanian; Moldavian; Moldovan (ro)" },
+        { value: "ru", label: "Russian (ru)" },
+        { value: "sd", label: "Sindhi (sd)" },
+        { value: "si", label: "Sinhala; Sinhalese (si)" },
+        { value: "sk", label: "Slovak (sk)" },
+        { value: "sl", label: "Slovenian (sl)" },
+        { value: "so", label: "Somali (so)" },
+        { value: "sq", label: "Albanian (sq)" },
+        { value: "sr", label: "Serbian (sr)" },
+        { value: "ss", label: "Swati (ss)" },
+        { value: "su", label: "Sundanese (su)" },
+        { value: "sv", label: "Swedish (sv)" },
+        { value: "sw", label: "Swahili (sw)" },
+        { value: "ta", label: "Tamil (ta)" },
+        { value: "th", label: "Thai (th)" },
+        { value: "tl", label: "Tagalog (tl)" },
+        { value: "tn", label: "Tswana (tn)" },
+        { value: "tr", label: "Turkish (tr)" },
+        { value: "uk", label: "Ukrainian (uk)" },
+        { value: "ur", label: "Urdu (ur)" },
+        { value: "uz", label: "Uzbek (uz)" },
+        { value: "vi", label: "Vietnamese (vi)" },
+        { value: "wo", label: "Wolof (wo)" },
+        { value: "xh", label: "Xhosa (xh)" },
+        { value: "yi", label: "Yiddish (yi)" },
+        { value: "yo", label: "Yoruba (yo)" },
+        { value: "zh", label: "Chinese (zh)" },
+        { value: "zu", label: "Zulu (zu)" },
+      ];
+
+      const TRANSLATE_OPTIONS = {
+        google: M2M_LANG_OPTIONS,
+        m2m100: M2M_LANG_OPTIONS,
+        llm: M2M_LANG_OPTIONS,
+      };
+
+      function rebuildTranslateOptions() {
+        if (!translateSelect || !translationEngineSelect) return;
+        const engine = translationEngineSelect.value || "google";
+        const opts =
+          TRANSLATE_OPTIONS[engine] || TRANSLATE_OPTIONS["google"];
+        const previous = translateSelect.value;
+        translateSelect.innerHTML = "";
+        opts.forEach((opt) => {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.label;
+          translateSelect.appendChild(o);
+        });
+        if (
+          previous &&
+          opts.some((opt) => opt.value === previous)
+        ) {
+          translateSelect.value = previous;
+        }
+      }
+
+      if (translationEngineSelect) {
+        translationEngineSelect.addEventListener(
+          "change",
+          rebuildTranslateOptions
+        );
+      }
+      rebuildTranslateOptions();
+
+      async function ensureFFmpeg() {
+        if (ffmpegInstance) {
+          return ffmpegInstance;
+        }
+        updateStatus("正在加载本地转码器（ffmpeg.wasm）…");
+
+        const mod = await import("/static/ffmpeg/ffmpeg.js");
+        console.debug(
+          "[vid2subs][preprocess] 已从本地 /static/ffmpeg/ffmpeg.js 加载 ffmpeg 模块。",
+          mod
+        );
+
+        const { FFmpeg } = mod || {};
+        if (typeof FFmpeg !== "function") {
+          throw new Error(
+            "本地 ffmpeg 模块不符合预期（缺少 FFmpeg 类），请检查 /static/ffmpeg/ffmpeg.js。"
+          );
+        }
+
+        ffmpegInstance = new FFmpeg();
+        try {
+          await ffmpegInstance.load({
+            coreURL: "/static/ffmpeg/ffmpeg-core.js",
+            wasmURL: "/static/ffmpeg/ffmpeg-core.wasm"
+          });
+        } catch (e) {
+          console.error("[vid2subs][preprocess] ffmpeg.load() 失败:", e);
+          throw new Error(
+            "ffmpeg.wasm 加载失败，本地静态资源或 core 文件不可用。详细信息请查看浏览器控制台。"
+          );
+        }
+        updateStatus("本地转码器加载完成，可以开始转码。");
+        return ffmpegInstance;
+      }
+
+      async function submitWithPreprocess(event) {
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          throw new Error("请先选择要上传的媒体文件。");
+        }
+
+        const originalFile = fileInput.files[0];
+        console.debug("[vid2subs][preprocess] 原始文件:", {
+          name: originalFile.name,
+          size: originalFile.size,
+          type: originalFile.type,
+        });
+
+        const ffmpeg = await ensureFFmpeg();
+        updateStatus("正在本地转码为 16k 单声道 Opus（可能需要一些时间）…");
+
+        const inputName = "input_" + Date.now() + ".tmp";
+        const outputName = "output.opus";
+        try {
+          const arrayBuffer = await originalFile.arrayBuffer();
+          const data = new Uint8Array(arrayBuffer);
+          await ffmpeg.writeFile(inputName, data);
+        } catch (e) {
+          console.error(
+            "[vid2subs][preprocess] 写入输入文件到 ffmpeg 虚拟文件系统失败:",
+            e
+          );
+          throw new Error(
+            "无法将文件写入 ffmpeg 虚拟文件系统，请检查文件大小或浏览器兼容性。"
+          );
+        }
+
+        try {
+          const args = [
+            "-i",
+            inputName,
+            "-vn",
+            "-acodec",
+            "libopus",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-b:a",
+            "48k",
+            "-y",
+            outputName,
+          ];
+          const code = await ffmpeg.exec(args);
+          if (code !== 0) {
+            console.error(
+              "[vid2subs][preprocess] ffmpeg.exec() 非零退出码:",
+              code
+            );
+            throw new Error(
+              "ffmpeg 转码命令执行失败（退出码 " +
+                code +
+                "），详细错误请查看浏览器控制台。"
+            );
+          }
+        } catch (e) {
+          console.error("[vid2subs][preprocess] ffmpeg.exec() 失败:", e);
+          throw new Error(
+            "ffmpeg 转码命令执行失败，详细错误请查看浏览器控制台。"
+          );
+        }
+
+        let data;
+        try {
+          data = await ffmpeg.readFile(outputName);
+        } catch (e) {
+          console.error(
+            "[vid2subs][preprocess] 从 ffmpeg 虚拟文件系统读取输出文件失败:",
+            e
+          );
+          throw new Error(
+            "无法从 ffmpeg 虚拟文件系统读取输出文件，详细错误请查看控制台。"
+          );
+        }
+
+        const blob = new Blob([data.buffer], { type: "audio/ogg" });
+        const newName =
+          (originalFile.name.split(".").slice(0, -1).join(".") || "audio") +
+          "_16k.opus";
+
+        const formData = new FormData(form);
+        formData.set(
+          "file",
+          new File([blob], newName, { type: "audio/ogg" })
+        );
+        return formData;
+      }
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+        if (!form) return;
+
+        try {
+          let formData;
+          if (ENABLE_BROWSER_PREPROCESS) {
+            try {
+              formData = await submitWithPreprocess(event);
+              updateStatus("本地转码完成，正在上传处理…");
+            } catch (preErr) {
+              console.error("Browser-side preprocessing failed:", preErr);
+              if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                throw new Error("请先选择要上传的媒体文件。");
+              }
+              updateStatus(
+                "本地转码失败，将直接上传原始文件在服务器端处理…"
+              );
+              formData = new FormData(form);
+            }
+          } else {
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+              throw new Error("请先选择要上传的媒体文件。");
+            }
+            formData = new FormData(form);
+            updateStatus("正在上传并处理任务…");
+          }
+
+          const resp = await fetch(form.action || "/api/jobs", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            const msg = data && data.error ? data.error : resp.statusText;
+            updateStatus("任务处理失败：" + msg);
+            return;
+          }
+
+          updateStatus("任务完成：共生成 " + (data.total_count || 0) + " 条字幕。");
+
+          // 更新右侧预览字幕
+          if (window.updatePreviewSubtitles && data.subtitles) {
+            window.updatePreviewSubtitles(data.subtitles);
+          }
+
+          // 简单地刷新页面以更新任务列表（保持实现稳定）
+          // 后续如需更好体验可以改成局部更新 jobs 表格
+          window.location.reload();
+        } catch (err) {
+          console.error("Submit failed:", err);
+          const msg =
+            (err && (err.message || err.toString())) ||
+            "未知错误（请查看浏览器控制台）。";
+          updateStatus("任务提交失败：" + msg);
+        }
+      }
+
+      if (form) {
+        form.addEventListener("submit", handleSubmit);
+      }
+
+      // MKV 导出：使用当前本地视频文件 + 当前字幕（ASS），在浏览器端封装 mkv（实验性）
+      const exportMkvBtn = document.createElement("button");
+      exportMkvBtn.type = "button";
+      exportMkvBtn.textContent = "导出 MKV（实验）";
+      exportMkvBtn.style.padding = "4px 10px";
+      exportMkvBtn.style.borderRadius = "999px";
+      exportMkvBtn.style.border = "1px solid var(--border-color)";
+      exportMkvBtn.style.background = "#f5f5f5";
+      exportMkvBtn.style.color = "#050505";
+      exportMkvBtn.style.fontSize = "11px";
+      exportMkvBtn.style.letterSpacing = "0.08em";
+      exportMkvBtn.style.textTransform = "uppercase";
+      exportMkvBtn.style.marginLeft = "8px";
+
+      const previewControls = document.querySelector(".preview-controls");
+      if (previewControls) {
+        previewControls.appendChild(exportMkvBtn);
+      }
+
+      exportMkvBtn.addEventListener("click", async () => {
+        try {
+          const videoFileInput = document.getElementById("preview_video_file");
+          if (!videoFileInput || !videoFileInput.files.length) {
+            alert("请先在右侧选择本地视频/音频文件。");
+            return;
+          }
+          const videoFile = videoFileInput.files[0];
+          const subtitles = window.getCurrentSubtitles
+            ? window.getCurrentSubtitles()
+            : [];
+          if (!subtitles.length) {
+            alert("当前没有可用字幕，请先生成或加载字幕。");
+            return;
+          }
+
+          const ffmpeg = await ensureFFmpeg();
+          const videoName = "input_video" + Date.now();
+          const encoder = new TextEncoder();
+
+          // 写入视频文件
+          const videoBuffer = await videoFile.arrayBuffer();
+          await ffmpeg.writeFile(videoName, new Uint8Array(videoBuffer));
+
+          const args = ["-i", videoName];
+
+          const fromMode = (mode) =>
+            window.buildAssForMode && subtitles.length
+              ? window.buildAssForMode(mode)
+              : "";
+
+          const wantSource =
+            document.getElementById("export_track_source")?.checked ?? true;
+          const wantTranslated =
+            document.getElementById("export_track_translated")?.checked ?? false;
+          const wantBilingual =
+            document.getElementById("export_track_bilingual")?.checked ?? false;
+
+          if (!wantSource && !wantTranslated && !wantBilingual) {
+            alert("请至少选择一个要导出的字幕轨道。");
+            return;
+          }
+
+          // 记录每个字幕输入对应的 ffmpeg 输入索引（0 是视频）
+          let nextInputIndex = 0;
+          const subtitleInputIndices = [];
+
+          if (wantSource) {
+            const assSource = fromMode("source");
+            if (assSource) {
+              const subsName = "subtitles_source.ass";
+              await ffmpeg.writeFile(subsName, encoder.encode(assSource));
+              args.push("-i", subsName);
+              nextInputIndex += 1;
+              subtitleInputIndices.push(nextInputIndex);
+            }
+          }
+          if (wantTranslated) {
+            const assTranslated = fromMode("translated");
+            if (assTranslated) {
+              const subsName = "subtitles_translated.ass";
+              await ffmpeg.writeFile(subsName, encoder.encode(assTranslated));
+              args.push("-i", subsName);
+              nextInputIndex += 1;
+              subtitleInputIndices.push(nextInputIndex);
+            }
+          }
+          if (wantBilingual) {
+            const assBilingual = fromMode("bilingual");
+            if (assBilingual) {
+              const subsName = "subtitles_bilingual.ass";
+              await ffmpeg.writeFile(subsName, encoder.encode(assBilingual));
+              args.push("-i", subsName);
+              nextInputIndex += 1;
+              subtitleInputIndices.push(nextInputIndex);
+            }
+          }
+
+          if (!subtitleInputIndices.length) {
+            alert("生成 ASS 字幕失败，未能生成任何字幕轨道。");
+            return;
+          }
+
+          const outputName = "output.mkv";
+          // 不重编码视频，只封装 mkv 并添加所有字幕轨道
+          // -map 0: 复制第一个输入（视频+音频）全部流
+          args.push("-map", "0");
+          // 每个字幕输入单独 map 一个 s 流，并设置标题，便于播放器区分
+          const subtitleKinds = [];
+          if (wantSource) subtitleKinds.push("source");
+          if (wantTranslated) subtitleKinds.push("translated");
+          if (wantBilingual) subtitleKinds.push("bilingual");
+
+          subtitleInputIndices.forEach((idx, i) => {
+            args.push("-map", String(idx));
+            const kind = subtitleKinds[i] || "subtitle";
+            let title = "Subtitle";
+            if (kind === "source") title = "Source (原文)";
+            else if (kind === "translated") title = "Translated (译文)";
+            else if (kind === "bilingual") title = "Bilingual (双语)";
+            // s:s:0 对应第一个输出字幕流（假设输入 0 无内嵌字幕）
+            args.push(`-metadata:s:s:${i}`, `title=${title}`);
+          });
+
+          args.push("-c", "copy", "-c:s", "ass", "-y", outputName);
+
+          updateStatus("正在使用 ffmpeg.wasm 封装 MKV（实验功能）…");
+          const code = await ffmpeg.exec(args);
+          if (code !== 0) {
+            console.error("[vid2subs][mkv] ffmpeg.exec 非零退出码:", code);
+            alert(
+              "封装 MKV 失败（退出码 " +
+                code +
+                "），详情请查看浏览器控制台日志。"
+            );
+            return;
+          }
+
+          const data = await ffmpeg.readFile(outputName);
+          const blob = new Blob([data.buffer], { type: "video/x-matroska" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "subtitled_output.mkv";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          updateStatus("MKV 导出完成（实验功能）。");
+        } catch (e) {
+          console.error("[vid2subs][mkv] 导出 MKV 失败:", e);
+          alert(
+            "导出 MKV 失败，该功能目前为实验性实现，请查看控制台获取详细错误信息。"
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

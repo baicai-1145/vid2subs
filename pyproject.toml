@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vid2subs"
-version = "0.1.1"
+version = "0.1.2"
 description = "Convert video or audio into time-aligned subtitles with optional vocal separation and translation."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -26,10 +26,19 @@ dependencies = [
     "modelscope",
     "python-dotenv>=1.0",
     "fast-langdetect",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "jinja2>=3.1.0",
 ]
 
 [project.scripts]
 vid2subs = "vid2subs.cli:main"
+vid2subs-web = "vid2subs.web.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

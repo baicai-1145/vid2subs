@@ -25,6 +25,7 @@ class Vid2SubsConfig:
     output_srt_source_path: Optional[Path] = None
     output_srt_translated_path: Optional[Path] = None
     output_srt_bilingual_path: Optional[Path] = None
+    output_ass_path: Optional[Path] = None
     max_silence: float = 1.0
     max_chars_per_sentence: int = 80
     translate_lang: Optional[str] = None
@@ -45,6 +46,7 @@ class Vid2SubsConfig:
         output_srt_source_path: Optional[str | Path] = None,
         output_srt_translated_path: Optional[str | Path] = None,
         output_srt_bilingual_path: Optional[str | Path] = None,
+        output_ass_path: Optional[str | Path] = None,
         max_silence: float = 1.0,
         max_chars_per_sentence: int | None = None,
         translate_lang: Optional[str] = None,
@@ -80,6 +82,7 @@ class Vid2SubsConfig:
         output_srt_source_obj: Optional[Path]
         output_srt_translated_obj: Optional[Path]
         output_srt_bilingual_obj: Optional[Path]
+        output_ass_obj: Optional[Path]
 
         # 如果传入的是显式路径则直接使用，否则如果为 True 则基于 base_srt 自动生成
         if isinstance(output_srt_source_path, (str, Path)):
@@ -102,6 +105,14 @@ class Vid2SubsConfig:
             output_srt_bilingual_obj = base_srt.with_name(base_srt.stem + ".bilingual.srt")
         else:
             output_srt_bilingual_obj = None
+
+        # ASS 输出：如果传入显式路径则使用，否则若为 True 则基于 base_srt 自动生成 .ass
+        if isinstance(output_ass_path, (str, Path)):
+            output_ass_obj = Path(output_ass_path).expanduser().resolve()
+        elif output_ass_path:
+            output_ass_obj = base_srt.with_suffix(".ass")
+        else:
+            output_ass_obj = None
 
         # 统一设备控制：优先使用显式传入的 device，其次读取环境变量 VID2SUBS_DEVICE
         if device is None:
@@ -136,6 +147,7 @@ class Vid2SubsConfig:
             output_srt_source_path=output_srt_source_obj,
             output_srt_translated_path=output_srt_translated_obj,
             output_srt_bilingual_path=output_srt_bilingual_obj,
+            output_ass_path=output_ass_obj,
             max_silence=max_silence,
             max_chars_per_sentence=max_chars_per_sentence_value,
             translate_lang=translate_lang,

@@ -1,0 +1,14 @@
+{
+  "name": "vid2subs-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dev tooling for vid2subs web static assets (ffmpeg.wasm, etc).",
+  "scripts": {
+    "prepare-ffmpeg": "node scripts/prepare-ffmpeg-assets.js"
+  },
+  "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15"
+  }
+}
+
